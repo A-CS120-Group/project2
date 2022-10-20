@@ -1,9 +1,12 @@
 #include <JuceHeader.h>
 #include <chrono>
 #include <fstream>
+#include <thread>
 #include <vector>
 
 #pragma once
+
+#define LENGTH_OF_ONE_BIT 6   // Must be a number in 1/2/3/4/5/6/8/10
 
 using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
@@ -22,21 +25,20 @@ public:
         recordButton.setButtonText("Send");
         recordButton.setSize(80, 40);
         recordButton.setCentrePosition(150, 140);
-        recordButton.onClick = nullptr;
+        recordButton.onClick = [this] {
+            std::ifstream f("INPUT.bin", std::ios::binary | std::ios::in);
+            char c;
+            while (f.get(c)) {
+                for (int i = 7; i >= 0; i--) { track.push_back(static_cast<bool>((c >> i) & 1)); }
+            }
+            status = 1;
+        };
         addAndMakeVisible(recordButton);
 
         playbackButton.setButtonText("Receive");
         playbackButton.setSize(80, 40);
         playbackButton.setCentrePosition(450, 140);
-        playbackButton.onClick = [this] {
-            if (status == 0) {
-                inputBuffer.clear();
-                status = 2;
-            } else if (status == 2) {
-                status = 3;
-            }
-            return;
-        };
+        playbackButton.onClick = nullptr;
         addAndMakeVisible(playbackButton);
 
         setSize(600, 300);
@@ -46,7 +48,7 @@ public:
     ~MainContentComponent() override { shutdownAudio(); }
 
 private:
-    void prepareToPlay([[maybe_unused]]int samplesPerBlockExpected, [[maybe_unused]]double sampleRate) override {}
+    void prepareToPlay([[maybe_unused]] int samplesPerBlockExpected, [[maybe_unused]] double sampleRate) override {}
 
     void getNextAudioBlock(const juce::AudioSourceChannelInfo &bufferToFill) override {
         auto *device = deviceManager.getCurrentAudioDevice();
@@ -61,24 +63,25 @@ private:
             if ((!activeInputChannels[channel] || !activeOutputChannels[channel]) || maxInputChannels == 0) {
                 bufferToFill.buffer->clear(channel, bufferToFill.startSample, bufferToFill.numSamples);
             } else {
-                if (status == 1) {
-                    buffer->clear();
-                    for (int i = 0; i < bufferSize; ++i, ++readPosition) {
-                        if (readPosition >= outputTrack.size()) {
-                            status = 0;
-                            break;
-                        }
-                        buffer->addSample(channel, i, (float) outputTrack[readPosition]);
-                    }
-                } else if (status == 2) {
-                    // Receive sound here
+                if (status == 0) {
                     const float *data = buffer->getReadPointer(channel);
-                    for (int i = 0; i < bufferSize; ++i) { inputBuffer.emplace_back(data[i]); }
-                    buffer->clear();
-                } else if (status == 3) {
-                    status = -1;
-                    processInput();
-                } else buffer->clear();
+                    for (int i = 0; i < bufferSize; ++i) { std::cout << (int) ((int) (data[i] / 10e-4) > 350) << " "; }
+                    std::cout << std::endl;
+                    break;
+                } else if (status == 1) {
+                    float *writePosition = buffer->getWritePointer(channel);
+                    for (int i = 0; i < bufferSize; ++i) {
+                        if (track.at(readPosition)) {
+                            writePosition[i] = 0.75f;
+                        } else {
+                            writePosition[i] = 0.0f;
+                        }
+                        if (i % LENGTH_OF_ONE_BIT == LENGTH_OF_ONE_BIT - 1) {
+                            ++readPosition;
+                        }
+                    }
+                    break;
+                }
             }
         }
 
@@ -101,12 +104,10 @@ private:
 
     void processInput() {
 #ifdef WIN32
-        juce::File writeTo(
-                R"(C:\Users\caoster\Desktop\CS120\project1\)" + juce::Time::getCurrentTime().toISO8601(false) + ".out");
+        juce::File writeTo(R"(C:\Users\caoster\Desktop\CS120\project1\)" + juce::Time::getCurrentTime().toISO8601(false) + ".out");
 #else
         juce::File writeTo(juce::File::getCurrentWorkingDirectory().getFullPathName() + juce::Time::getCurrentTime().toISO8601(false) + ".out");
 #endif
-        inputBuffer = outputTrack;
         track.clear();
         for (auto b: track) {
             std::cout << b;
@@ -117,26 +118,15 @@ private:
 
     void releaseResources() override {}
 
-    void generateSignal() {
-        for (int i = 0; i < 50; ++i) { outputTrack.push_back(0); }
-    }
-
-
 private:
     std::vector<bool> track;
-    std::vector<double> outputTrack;
-    std::vector<double> inputBuffer;
 
     juce::Label titleLabel;
     juce::TextButton recordButton;
     juce::TextButton playbackButton;
 
-    int status{0};// 0 for waiting, 1 for sending, 2 for listening, 3 for processing, -1 for waiting
-    long long startTime{0};
+    int status{0};
     int readPosition{0};
-
-    double carrier[48001];
-    double preamble[480];
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainContentComponent)
 };
