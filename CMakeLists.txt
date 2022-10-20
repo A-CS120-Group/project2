@@ -17,6 +17,8 @@ if (${CURRENT_TARGET} STREQUAL "Project2_Part1")
             PRIVATE
             part1/main.cpp
             part1/Part1.h
+            part1/utils.cpp
+            part1/utils.h
             )
 elseif (${CURRENT_TARGET} STREQUAL "Project1_Part3")
     target_sources(${CURRENT_TARGET}

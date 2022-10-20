@@ -1,3 +1,4 @@
+#include "utils.h"
 #include <JuceHeader.h>
 #include <chrono>
 #include <fstream>
@@ -6,7 +7,7 @@
 
 #pragma once
 
-#define LENGTH_OF_ONE_BIT 6   // Must be a number in 1/2/3/4/5/6/8/10
+#define LENGTH_OF_ONE_BIT 6// Must be a number in 1/2/3/4/5/6/8/10
 
 using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
@@ -49,7 +50,21 @@ public:
     ~MainContentComponent() override { shutdownAudio(); }
 
 private:
-    void prepareToPlay([[maybe_unused]] int samplesPerBlockExpected, [[maybe_unused]] double sampleRate) override {}
+    void prepareToPlay([[maybe_unused]] int samplesPerBlockExpected, double sampleRate) override {
+        std::vector<float> t;
+        t.reserve((int) sampleRate);
+        std::cout << sampleRate << std::endl;
+        for (int i = 0; i <= sampleRate; ++i) { t.push_back((float) i / (float) sampleRate); }
+
+        auto f = linspace(2000, 10000, 240);
+        auto f_temp = linspace(10000, 2000, 240);
+        f.reserve(f.size() + f_temp.size());
+        f.insert(std::end(f), std::begin(f_temp), std::end(f_temp));
+
+        std::vector<float> x(t.begin(), t.begin() + 480);
+        preamble = cumtrapz(x, f);
+        for (float &i: preamble) { i = sin(2.0f * PI * i); }
+    }
 
     void getNextAudioBlock(const juce::AudioSourceChannelInfo &bufferToFill) override {
         auto *device = deviceManager.getCurrentAudioDevice();
@@ -66,10 +81,17 @@ private:
             } else {
                 if (status == 0) {
                     const float *data = buffer->getReadPointer(channel);
-                    for (int i = 0; i < bufferSize; ++i) { std::cout << (int) ((int) (data[i] / 10e-4) > 350) << " "; }
-                    std::cout << std::endl;
+                    for (int i = 0; i < bufferSize; ++i) {
+                        //                        std::cout << (int) ((int) (data[i] / 10e-4) > 350) << " ";
+                        if (data[i] / 10e-4 > 100) {
+                            std::cout << "1";
+                        } else if (data[i] / 10e-4 < -100) {
+                            std::cout << "0";
+                        } else {
+                            std::cout << "_";
+                        }
+                    }
                     buffer->clear();
-                    break;
                 } else if (status == 1) {
                     float *writePosition = buffer->getWritePointer(channel);
                     for (int i = 0; i < bufferSize; ++i) {
@@ -80,12 +102,9 @@ private:
                         }
                         if (i % LENGTH_OF_ONE_BIT == LENGTH_OF_ONE_BIT - 1) {
                             ++readPosition;
-                            if (readPosition == track.size()) {
-                                status = 0;
-                            }
+                            if (readPosition == track.size()) { status = 0; }
                         }
                     }
-                    break;
                 }
             }
         }
@@ -108,16 +127,38 @@ private:
     }
 
     void processInput() {
-#ifdef WIN32
-        juce::File writeTo(R"(C:\Users\caoster\Desktop\CS120\project1\)" + juce::Time::getCurrentTime().toISO8601(false) + ".out");
-#else
-        juce::File writeTo(juce::File::getCurrentWorkingDirectory().getFullPathName() + juce::Time::getCurrentTime().toISO8601(false) + ".out");
-#endif
-        track.clear();
-        for (auto b: track) {
-            std::cout << b;
-            writeTo.appendText(b ? "1" : "0");
+        float power = 0;
+        int start_index = -1;
+        std::deque<float> sync(480, 0);
+        std::vector<float> decode;
+        float syncPower_localMax = 0;
+        int state = 0;// 0 sync; 1 decode
+
+        for (int i = 0; i < inputBuffer.size(); ++i) {
+            float cur = inputBuffer[i];
+            power = power * (63.0 / 64) + cur * cur / 64;
+            if (state == 0) {
+                sync.pop_front();
+                sync.push_back(cur);
+                float syncPower = std::inner_product(sync.begin(), sync.end(), preamble.begin(), 0.0) / 200.0;
+                if (syncPower > power * 2 && syncPower > syncPower_localMax && syncPower > 0.05) {
+                    syncPower_localMax = syncPower;
+                    start_index = i;
+                } else if (i - start_index > 200 && start_index != -1) {
+                    syncPower_localMax = 0;
+                    sync = std::deque<float>(480, 0);
+                    state = 1;
+                    decode = std::vector<float>(inputBuffer.begin() + start_index + 1, inputBuffer.begin() + i + 1);
+                    std::cout << "Header found" << std::endl;
+                }
+            } else {
+                decode.push_back(cur);
+                if (decode.size() == 48 * 400) {
+                    // TODO: 400 bits here
+                }
+            }
         }
+        std::cout << "Finish processing!" << std::endl;
         status = 0;
     }
 
@@ -125,6 +166,7 @@ private:
 
 private:
     std::vector<bool> track;
+    std::vector<float> preamble;
 
     juce::Label titleLabel;
     juce::TextButton recordButton;
