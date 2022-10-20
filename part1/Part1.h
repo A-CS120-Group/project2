@@ -26,6 +26,7 @@ public:
         recordButton.setSize(80, 40);
         recordButton.setCentrePosition(150, 140);
         recordButton.onClick = [this] {
+            track.clear();
             std::ifstream f("INPUT.bin", std::ios::binary | std::ios::in);
             char c;
             while (f.get(c)) {
@@ -67,6 +68,7 @@ private:
                     const float *data = buffer->getReadPointer(channel);
                     for (int i = 0; i < bufferSize; ++i) { std::cout << (int) ((int) (data[i] / 10e-4) > 350) << " "; }
                     std::cout << std::endl;
+                    buffer->clear();
                     break;
                 } else if (status == 1) {
                     float *writePosition = buffer->getWritePointer(channel);
@@ -78,6 +80,9 @@ private:
                         }
                         if (i % LENGTH_OF_ONE_BIT == LENGTH_OF_ONE_BIT - 1) {
                             ++readPosition;
+                            if (readPosition == track.size()) {
+                                status = 0;
+                            }
                         }
                     }
                     break;
