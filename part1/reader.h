@@ -11,14 +11,16 @@
 
 class Reader : Thread {
 public:
-    explicit Reader(std::vector<bool> *writeTo) : Thread("Reader"), target(writeTo) {
-        writeTo->reserve(48000);// One second should be enough
-    }
+    explicit Reader(std::queue<float> *writeTo) : Thread("Reader"), target(writeTo) {};
 
     void run() override {
         assert(target != nullptr);
         while (threadShouldExit()) {
             if (!target->empty()) {// Not fully utilized yet
+
+                float nextValue = target->front();
+                target->pop();
+
 
                 float power = 0;
                 int start_index = -1;
@@ -57,7 +59,7 @@ public:
     }
 
 private:
-    std::vector<bool> *target{nullptr};
+    std::queue<float> *target{nullptr};
 };
 
 #endif//PROJECT2_PART1_READER_H
