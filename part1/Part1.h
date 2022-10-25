@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "reader.h"
 #include <JuceHeader.h>
 #include <chrono>
 #include <fstream>
@@ -45,9 +46,18 @@ public:
         setAudioChannels(1, 1);
     }
 
-    ~MainContentComponent() override { shutdownAudio(); }
+    ~MainContentComponent() override {
+        delete reader;
+        shutdownAudio();
+    }
 
 private:
+    void initThreads() {
+        reader = new Reader(&directInput, &directInputLock, &binaryInput, &binaryInputLock);
+        reader->startThread();
+    }
+
+
     void prepareToPlay([[maybe_unused]] int samplesPerBlockExpected, double sampleRate) override {
         std::vector<float> t;
         t.reserve((int) sampleRate);
@@ -62,6 +72,8 @@ private:
         std::vector<float> x(t.begin(), t.begin() + 480);
         preamble = cumtrapz(x, f);
         for (float &i: preamble) { i = sin(2.0f * PI * i); }
+
+        initThreads();
     }
 
     void getNextAudioBlock(const juce::AudioSourceChannelInfo &bufferToFill) override {
@@ -79,16 +91,11 @@ private:
             } else {
                 if (status == 0) {
                     const float *data = buffer->getReadPointer(channel);
-                    for (int i = 0; i < bufferSize; ++i) {
-                        //                        std::cout << (int) ((int) (data[i] / 10e-4) > 350) << " ";
-                        if (data[i] / 10e-4 > 100) {
-                            std::cout << "1";
-                        } else if (data[i] / 10e-4 < -100) {
-                            std::cout << "0";
-                        } else {
-                            std::cout << "_";
-                        }
+                    directInputLock.enter();
+                    for (auto i = 0; i < bufferSize; ++i) {
+                        directInput.push(data[i]);
                     }
+                    directInputLock.exit();
                     buffer->clear();
                 } else if (status == 1) {
                     float *writePosition = buffer->getWritePointer(channel);
@@ -127,6 +134,12 @@ private:
     void releaseResources() override {}
 
 private:
+    Reader *reader;
+    std::queue<float> directInput;
+    CriticalSection directInputLock;
+    std::queue<bool> binaryInput;
+    CriticalSection binaryInputLock;
+
     std::vector<bool> track;
     std::vector<float> preamble;
 
@@ -134,7 +147,7 @@ private:
     juce::TextButton recordButton;
     juce::TextButton playbackButton;
 
-    int status{0};
+    std::atomic<int> status{0};
     int readPosition{0};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainContentComponent)
