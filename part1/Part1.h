@@ -1,8 +1,9 @@
-#include "utils.h"
 #include "reader.h"
+#include "utils.h"
 #include <JuceHeader.h>
 #include <chrono>
 #include <fstream>
+#include <queue>
 #include <thread>
 #include <vector>
 
@@ -25,15 +26,7 @@ public:
         recordButton.setButtonText("Send");
         recordButton.setSize(80, 40);
         recordButton.setCentrePosition(150, 140);
-        recordButton.onClick = [this] {
-            track.clear();
-            std::ifstream f("INPUT.bin", std::ios::binary | std::ios::in);
-            char c;
-            while (f.get(c)) {
-                for (int i = 7; i >= 0; i--) { track.push_back(static_cast<bool>((c >> i) & 1)); }
-            }
-            status = 1;
-        };
+        recordButton.onClick = nullptr;
         addAndMakeVisible(recordButton);
 
         playbackButton.setButtonText("Receive");
@@ -92,24 +85,24 @@ private:
                 if (status == 0) {
                     const float *data = buffer->getReadPointer(channel);
                     directInputLock.enter();
-                    for (auto i = 0; i < bufferSize; ++i) {
-                        directInput.push(data[i]);
-                    }
+                    for (auto i = 0; i < bufferSize; ++i) { directInput.push(data[i]); }
                     directInputLock.exit();
                     buffer->clear();
                 } else if (status == 1) {
                     float *writePosition = buffer->getWritePointer(channel);
-                    for (int i = 0; i < bufferSize; ++i) {
-                        if (track.at(readPosition)) {
-                            writePosition[i] = 0.75f;
-                        } else {
-                            writePosition[i] = 0.0f;
-                        }
-                        if (i % LENGTH_OF_ONE_BIT == LENGTH_OF_ONE_BIT - 1) {
-                            ++readPosition;
-                            if (readPosition == track.size()) { status = 0; }
+                    outputBinaryLock.enter();
+                    for (auto i = 0; i < bufferSize; i += LENGTH_OF_ONE_BIT) {
+                        auto temp = track.front();
+                        track.pop();
+                        for (auto j = 0; j < LENGTH_OF_ONE_BIT; ++j) {
+                            if (temp) {// Please do not make it short, we may change its logic here.
+                                writePosition[j] = 0.75f;
+                            } else {
+                                writePosition[j] = 0.0f;
+                            }
                         }
                     }
+                    outputBinaryLock.exit();
                 }
             }
         }
@@ -134,13 +127,14 @@ private:
     void releaseResources() override {}
 
 private:
-    Reader *reader;
+    Reader *reader{nullptr};
     std::queue<float> directInput;
     CriticalSection directInputLock;
     std::queue<bool> binaryInput;
     CriticalSection binaryInputLock;
 
-    std::vector<bool> track;
+    std::queue<bool> track;
+    CriticalSection outputBinaryLock;
     std::vector<float> preamble;
 
     juce::Label titleLabel;
@@ -148,7 +142,6 @@ private:
     juce::TextButton playbackButton;
 
     std::atomic<int> status{0};
-    int readPosition{0};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainContentComponent)
 };

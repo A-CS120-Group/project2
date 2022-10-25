@@ -1,7 +1,3 @@
-//
-// Created by caoster on 2022/10/24.
-//
-
 #ifndef PROJECT2_PART1_READER_H
 #define PROJECT2_PART1_READER_H
 
