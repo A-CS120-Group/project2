@@ -7,8 +7,6 @@
 
 #pragma once
 
-#define LENGTH_OF_ONE_BIT 6// Must be a number in 1/2/3/4/5/6/8/10
-
 using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
 using std::chrono::milliseconds;
@@ -124,42 +122,6 @@ private:
                 titleLabel.setText("Processing", juce::NotificationType::dontSendNotification);
                 break;
         }
-    }
-
-    void processInput() {
-        float power = 0;
-        int start_index = -1;
-        std::deque<float> sync(480, 0);
-        std::vector<float> decode;
-        float syncPower_localMax = 0;
-        int state = 0;// 0 sync; 1 decode
-
-        for (int i = 0; i < inputBuffer.size(); ++i) {
-            float cur = inputBuffer[i];
-            power = power * (63.0 / 64) + cur * cur / 64;
-            if (state == 0) {
-                sync.pop_front();
-                sync.push_back(cur);
-                float syncPower = std::inner_product(sync.begin(), sync.end(), preamble.begin(), 0.0) / 200.0;
-                if (syncPower > power * 2 && syncPower > syncPower_localMax && syncPower > 0.05) {
-                    syncPower_localMax = syncPower;
-                    start_index = i;
-                } else if (i - start_index > 200 && start_index != -1) {
-                    syncPower_localMax = 0;
-                    sync = std::deque<float>(480, 0);
-                    state = 1;
-                    decode = std::vector<float>(inputBuffer.begin() + start_index + 1, inputBuffer.begin() + i + 1);
-                    std::cout << "Header found" << std::endl;
-                }
-            } else {
-                decode.push_back(cur);
-                if (decode.size() == 48 * 400) {
-                    // TODO: 400 bits here
-                }
-            }
-        }
-        std::cout << "Finish processing!" << std::endl;
-        status = 0;
     }
 
     void releaseResources() override {}
