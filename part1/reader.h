@@ -38,7 +38,7 @@ public:
         assert(output != nullptr);
         assert(protectInput != nullptr);
         assert(protectOutput != nullptr);
-        while (threadShouldExit()) {
+        while (!threadShouldExit()) {
             protectInput->enter();
             if (!input->empty()) {// Not fully utilized yet
 
@@ -54,11 +54,11 @@ public:
                     if (syncPower > power * 2 && syncPower > syncPower_localMax && syncPower > 0.05f) {
                         syncPower_localMax = syncPower;
                         start_index = count;
-                    } else if (count - start_index > 220 && start_index != -1) {
+                    } else if (count - start_index > 200 && start_index != -1) {
                         syncPower_localMax = 0;
                         state = 1;
                         //decode = std::vector<float>(inputBuffer.begin() + start_index + 1, inputBuffer.begin() + i + 1); // copy the last elements of sync
-                        decode = std::vector<float>(sync.end() - 220 - 1, sync.end());
+                        decode = std::vector<float>(sync.end() - 200 - 1, sync.end());
                         std::cout << "Header found" << std::endl;
                         sync = std::deque<float>(480, 0);
                     }

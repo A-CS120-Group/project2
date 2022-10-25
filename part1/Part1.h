@@ -26,7 +26,15 @@ public:
         recordButton.setButtonText("Send");
         recordButton.setSize(80, 40);
         recordButton.setCentrePosition(150, 140);
-        recordButton.onClick = nullptr;
+        recordButton.onClick = [this] {
+            std::ifstream f("INPUT.bin", std::ios::binary | std::ios::in);
+            char c;
+            while (f.get(c)) {
+                for (int i = 7; i >= 0; i--) { track.push(static_cast<bool>((c >> i) & 1)); }
+            }
+            generateOutput();
+            status = 1;
+        };
         addAndMakeVisible(recordButton);
 
         playbackButton.setButtonText("Receive");
@@ -90,19 +98,27 @@ private:
                     buffer->clear();
                 } else if (status == 1) {
                     float *writePosition = buffer->getWritePointer(channel);
-                    outputBinaryLock.enter();
-                    for (auto i = 0; i < bufferSize; i += LENGTH_OF_ONE_BIT) {
-                        auto temp = track.front();
-                        track.pop();
-                        for (auto j = 0; j < LENGTH_OF_ONE_BIT; ++j) {
-                            if (temp) {// Please do not make it short, we may change its logic here.
-                                writePosition[j] = 0.75f;
-                            } else {
-                                writePosition[j] = 0.0f;
-                            }
-                        }
+                    //                    outputBinaryLock.enter();
+                    //                    for (auto i = 0; i < bufferSize; i += LENGTH_OF_ONE_BIT) {
+                    //                        auto temp = track.front();
+                    //                        track.pop();
+                    //                        for (auto j = 0; j < LENGTH_OF_ONE_BIT; ++j) {
+                    //                            if (temp) {// Please do not make it short, we may change its logic here.
+                    //                                writePosition[j] = 0.75f;
+                    //                            } else {
+                    //                                writePosition[j] = 0.0f;
+                    //                            }
+                    //                        }
+                    //                    }
+                    //                    outputBinaryLock.exit();
+                    for (int i = 0; i < bufferSize; ++i) {
+                        if (outputHere.empty()) break;
+                        auto temp = outputHere.front();
+                        outputHere.pop();
+                        writePosition[i] = temp;
+                        ++qwer;
                     }
-                    outputBinaryLock.exit();
+                    std::cout << qwer << "\n";
                 }
             }
         }
@@ -126,6 +142,25 @@ private:
 
     void releaseResources() override {}
 
+    void generateOutput() {
+        auto count = 0;
+        while (!track.empty()) {
+            if (count % 400 == 0) {
+                for (auto jjj: preamble) { outputHere.push(jjj); }
+            }
+            auto temp = track.front();
+            track.pop();
+            for (int i = 0; i < LENGTH_OF_ONE_BIT; ++i) {
+                if (temp) {
+                    outputHere.push(0.75f);
+                } else {
+                    outputHere.push(0);
+                }
+            }
+            ++count;
+        }
+    }
+
 private:
     Reader *reader{nullptr};
     std::queue<float> directInput;
@@ -137,11 +172,15 @@ private:
     CriticalSection outputBinaryLock;
     std::vector<float> preamble;
 
+    std::queue<float> outputHere;
+
     juce::Label titleLabel;
     juce::TextButton recordButton;
     juce::TextButton playbackButton;
 
     std::atomic<int> status{0};
+
+    size_t qwer{0};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainContentComponent)
 };
