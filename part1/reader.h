@@ -54,18 +54,18 @@ public:
                     if (syncPower > power * 2 && syncPower > syncPower_localMax && syncPower > 0.05f) {
                         syncPower_localMax = syncPower;
                         start_index = count;
-                    } else if (count - start_index > 200 && start_index != -1) {
+                    } else if (count - start_index > 220 && start_index != -1) {
                         syncPower_localMax = 0;
                         state = 1;
                         //decode = std::vector<float>(inputBuffer.begin() + start_index + 1, inputBuffer.begin() + i + 1); // copy the last elements of sync
-                        decode = std::vector<float>(sync.end() - 200 - 1, sync.end());
+                        decode = std::vector<float>(sync.end() - 220 - 1, sync.end());
                         std::cout << "Header found" << std::endl;
                         sync = std::deque<float>(480, 0);
                     }
                 } else {
                     decode.push_back(nextValue);
                     if (decode.size() == LENGTH_OF_ONE_BIT * 400) {
-                        for (int q = 0; q < 400; q += LENGTH_OF_ONE_BIT) {
+                        for (int q = 0; q < LENGTH_OF_ONE_BIT * 400; q += LENGTH_OF_ONE_BIT) {
                             auto accumulation = std::accumulate(decode.begin() + q, decode.begin() + q + LENGTH_OF_ONE_BIT, 0.0f);
                             protectOutput->enter();
                             if (accumulation > 0) {// Please do not make it short, we may change its logic here.

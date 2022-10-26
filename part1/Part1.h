@@ -27,20 +27,35 @@ public:
         recordButton.setSize(80, 40);
         recordButton.setCentrePosition(150, 140);
         recordButton.onClick = [this] {
+            status = 2; // TODO: Remember to remove this line
             std::ifstream f("INPUT.bin", std::ios::binary | std::ios::in);
             char c;
             while (f.get(c)) {
                 for (int i = 7; i >= 0; i--) { track.push(static_cast<bool>((c >> i) & 1)); }
             }
             generateOutput();
-            status = 1;
+            //            status = 1;
+            directInputLock.enter();
+            while (!outputHere.empty()) {
+                directInput.push(outputHere.front());
+                outputHere.pop();
+            }
+            directInputLock.exit();
         };
         addAndMakeVisible(recordButton);
 
         playbackButton.setButtonText("Receive");
         playbackButton.setSize(80, 40);
         playbackButton.setCentrePosition(450, 140);
-        playbackButton.onClick = nullptr;
+        playbackButton.onClick = [this] {
+//            std::ifstream f("OUTPUT.bin", std::ios::binary | std::ios::out);
+            binaryInputLock.enter();
+            while (!binaryInput.empty()) {
+                std::cout << binaryInput.front();
+                binaryInput.pop();
+            }
+            binaryInputLock.exit();
+        };
         addAndMakeVisible(playbackButton);
 
         setSize(600, 300);
@@ -146,6 +161,7 @@ private:
         auto count = 0;
         while (!track.empty()) {
             if (count % 400 == 0) {
+                for (int i = 0; i < 10; ++i) { outputHere.push(0); }
                 for (auto jjj: preamble) { outputHere.push(jjj); }
             }
             auto temp = track.front();
