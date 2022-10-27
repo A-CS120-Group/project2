@@ -110,6 +110,7 @@ private:
         auto buffer = bufferToFill.buffer;
         auto bufferSize = buffer->getNumSamples();
 
+        for (auto channel = 0; channel < maxOutputChannels; ++channel) {
             if ((!activeInputChannels[channel] || !activeOutputChannels[channel]) || maxInputChannels == 0) {
                 bufferToFill.buffer->clear(channel, bufferToFill.startSample, bufferToFill.numSamples);
             } else {
