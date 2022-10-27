@@ -16,7 +16,7 @@ using std::chrono::milliseconds;
 class MainContentComponent : public juce::AudioAppComponent {
 public:
     MainContentComponent() {
-        titleLabel.setText("Part3", juce::NotificationType::dontSendNotification);
+        titleLabel.setText("Part1", juce::NotificationType::dontSendNotification);
         titleLabel.setSize(160, 40);
         titleLabel.setFont(juce::Font(36, juce::Font::FontStyleFlags::bold));
         titleLabel.setJustificationType(juce::Justification(juce::Justification::Flags::centred));
@@ -29,6 +29,7 @@ public:
         recordButton.onClick = [this] {
             status = 2;// TODO: Remember to remove this line
             std::ifstream f("INPUT.bin", std::ios::binary | std::ios::in);
+            assert(f.is_open());
             char c;
             binaryOutputLock.enter();
             while (f.get(c)) {
@@ -50,11 +51,20 @@ public:
         playbackButton.setSize(80, 40);
         playbackButton.setCentrePosition(450, 140);
         playbackButton.onClick = [this] {
-            //            std::ifstream f("OUTPUT.bin", std::ios::binary | std::ios::out);
+            std::ofstream f("OUTPUT.bin", std::ios::binary | std::ios::out);
+            auto count = 0;
+            char c = 0;
             binaryInputLock.enter();
             while (!binaryInput.empty()) {
-                std::cout << binaryInput.front();
+                auto temp = binaryInput.front();
                 binaryInput.pop();
+                ++count;
+                c <<= 1;
+                c = temp ? char(c + 1) : char(c);
+                if (count % 8 == 0) {
+                    f << c;
+                    c = 0;
+                }
             }
             binaryInputLock.exit();
         };
@@ -75,7 +85,7 @@ private:
 
     void prepareToPlay([[maybe_unused]] int samplesPerBlockExpected, double sampleRate) override {
         std::vector<float> t;
-        t.reserve((int) sampleRate);
+        t.reserve((size_t) sampleRate);
         std::cout << sampleRate << std::endl;
         for (int i = 0; i <= sampleRate; ++i) { t.push_back((float) i / (float) sampleRate); }
 
@@ -100,7 +110,6 @@ private:
         auto buffer = bufferToFill.buffer;
         auto bufferSize = buffer->getNumSamples();
 
-        for (auto channel = 0; channel < maxOutputChannels; ++channel) {
             if ((!activeInputChannels[channel] || !activeOutputChannels[channel]) || maxInputChannels == 0) {
                 bufferToFill.buffer->clear(channel, bufferToFill.startSample, bufferToFill.numSamples);
             } else {

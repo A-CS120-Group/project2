@@ -15,7 +15,7 @@ public:
 
 
     explicit Reader(std::queue<float> *bufferIn, CriticalSection *lockInput, std::queue<bool> *bufferOut, CriticalSection *lockOutput)
-        : Thread("Reader"), input(bufferIn), protectInput(lockInput), output(bufferOut), protectOutput(lockOutput) {
+        : Thread("Reader"), input(bufferIn), output(bufferOut), protectInput(lockInput), protectOutput(lockOutput) {
         auto sampleRate = 48000;
         std::vector<float> t;
         t.reserve((size_t) sampleRate);
