@@ -96,7 +96,10 @@ private:
 
         std::vector<float> x(t.begin(), t.begin() + 480);
         preamble = cumtrapz(x, f);
-        for (float &i: preamble) { i = sin(2.0f * PI * i); }
+        for (float &i: preamble) {
+            i = sin(2.0f * PI * i);
+//            std::cout << i << std::endl;
+        }
 
         initThreads();
     }
@@ -156,6 +159,7 @@ private:
     void generateOutput() {
         auto count = 0;
         binaryOutputLock.enter();
+        directOutputLock.enter();
         while (!binaryOutput.empty()) {
             if (count % 400 == 0) {
                 for (int i = 0; i < 10; ++i) { directOutput.push(0); }
@@ -172,6 +176,7 @@ private:
             }
             ++count;
         }
+        directOutputLock.exit();
         binaryOutputLock.exit();
     }
 
