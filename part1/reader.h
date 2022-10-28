@@ -1,5 +1,5 @@
-#ifndef PROJECT2_PART1_READER_H
-#define PROJECT2_PART1_READER_H
+#ifndef READER_H
+#define READER_H
 
 #include "utils.h"
 #include <JuceHeader.h>
@@ -65,16 +65,16 @@ public:
                 } else {
                     decode.push_back(nextValue);
                     if (decode.size() == LENGTH_OF_ONE_BIT * 400) {
+                        protectOutput->enter();
                         for (int q = 0; q < LENGTH_OF_ONE_BIT * 400; q += LENGTH_OF_ONE_BIT) {
                             auto accumulation = std::accumulate(decode.begin() + q, decode.begin() + q + LENGTH_OF_ONE_BIT, 0.0f);
-                            protectOutput->enter();
                             if (accumulation > 0) {// Please do not make it short, we may change its logic here.
                                 output->push(true);
                             } else {
                                 output->push(false);
                             }
-                            protectOutput->exit();
                         }
+                        protectOutput->exit();
                         start_index = -1;
                         decode.clear();
                         state = 0;
@@ -103,4 +103,4 @@ private:
     int state = 0;// 0 sync; 1 decode
 };
 
-#endif//PROJECT2_PART1_READER_H
+#endif//READER_H

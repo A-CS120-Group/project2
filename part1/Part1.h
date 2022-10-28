@@ -159,7 +159,7 @@ private:
         while (!binaryOutput.empty()) {
             if (count % 400 == 0) {
                 for (int i = 0; i < 10; ++i) { directOutput.push(0); }
-                for (auto jjj: preamble) { directOutput.push(jjj); }
+                for (auto i: preamble) { directOutput.push(i); }
             }
             auto temp = binaryOutput.front();
             binaryOutput.pop();
