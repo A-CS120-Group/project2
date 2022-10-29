@@ -9,6 +9,7 @@
 
 #define PI acosf(-1)
 #define LENGTH_OF_ONE_BIT 6// Must be a number in 1/2/3/4/5/6/8/10
+#define BITS_PER_FRAME 400
 
 std::vector<float> linspace(float min, float max, int n);
 

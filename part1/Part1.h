@@ -89,16 +89,16 @@ private:
         std::cout << sampleRate << std::endl;
         for (int i = 0; i <= sampleRate; ++i) { t.push_back((float) i / (float) sampleRate); }
 
-        auto f = linspace(2000, 10000, 240);
-        auto f_temp = linspace(10000, 2000, 240);
+        auto f = linspace(2000, 10000, 120);
+        auto f_temp = linspace(10000, 2000, 120);
         f.reserve(f.size() + f_temp.size());
         f.insert(std::end(f), std::begin(f_temp), std::end(f_temp));
 
-        std::vector<float> x(t.begin(), t.begin() + 480);
+        std::vector<float> x(t.begin(), t.begin() + 240);
         preamble = cumtrapz(x, f);
         for (float &i: preamble) {
             i = sin(2.0f * PI * i);
-//            std::cout << i << std::endl;
+            //            std::cout << i << std::endl;
         }
 
         initThreads();
@@ -161,9 +161,10 @@ private:
         binaryOutputLock.enter();
         directOutputLock.enter();
         while (!binaryOutput.empty()) {
-            if (count % 400 == 0) {
+            if (count % BITS_PER_FRAME == 0) {
                 for (int i = 0; i < 10; ++i) { directOutput.push(0); }
                 for (auto i: preamble) { directOutput.push(i); }
+                for (int i = 0; i < LENGTH_OF_ONE_BIT * 8; ++i) { directOutput.push(0.45f); }
             }
             auto temp = binaryOutput.front();
             binaryOutput.pop();

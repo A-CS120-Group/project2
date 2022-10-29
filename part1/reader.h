@@ -21,16 +21,16 @@ public:
         t.reserve((size_t) sampleRate);
         for (int i = 0; i <= sampleRate; ++i) { t.push_back((float) i / (float) sampleRate); }
 
-        auto f = linspace(2000, 10000, 240);
-        auto f_temp = linspace(10000, 2000, 240);
+        auto f = linspace(2000, 10000, 120);
+        auto f_temp = linspace(10000, 2000, 120);
         f.reserve(f.size() + f_temp.size());
         f.insert(std::end(f), std::begin(f_temp), std::end(f_temp));
 
-        std::vector<float> x(t.begin(), t.begin() + 480);
+        std::vector<float> x(t.begin(), t.begin() + 240);
         preamble = cumtrapz(x, f);
         for (float &i: preamble) { i = sin(2.0f * PI * i); }
 
-        sync = std::deque<float>(480, 0);
+        sync = std::deque<float>(240, 0);
     }
 
     void run() override {
@@ -50,23 +50,24 @@ public:
                 if (state == 0) {
                     sync.pop_front();
                     sync.push_back(nextValue);
-                    auto syncPower = static_cast<float>(std::inner_product(sync.begin(), sync.end(), preamble.begin(), 0.0f) / 200.0f);
+                    auto syncPower = static_cast<float>(std::inner_product(sync.begin(), sync.end(), preamble.begin(), 0.0f) / 100.0f);
                     if (syncPower > power * 2 && syncPower > syncPower_localMax && syncPower > 0.05f) {
                         syncPower_localMax = syncPower;
                         start_index = count;
-                    } else if (count - start_index > 220 && start_index != -1) {
+                    } else if (count - start_index > 110 && start_index != -1) {
                         syncPower_localMax = 0;
                         state = 1;
                         //decode = std::vector<float>(inputBuffer.begin() + start_index + 1, inputBuffer.begin() + i + 1); // copy the last elements of sync
-                        decode = std::vector<float>(sync.end() - 220 - 1, sync.end());
+                        decode = std::vector<float>(sync.end() - 110 - 1, sync.end());
                         std::cout << "Header found" << std::endl;
-                        sync = std::deque<float>(480, 0);
+                        sync = std::deque<float>(240, 0);
                     }
                 } else {
                     decode.push_back(nextValue);
-                    if (decode.size() == LENGTH_OF_ONE_BIT * 400) {
+                    if (decode.size() == LENGTH_OF_ONE_BIT * (BITS_PER_FRAME + 8)) {
                         protectOutput->enter();
-                        for (int q = 0; q < LENGTH_OF_ONE_BIT * 400; q += LENGTH_OF_ONE_BIT) {
+//                        for (int q = LENGTH_OF_ONE_BIT * 8; q < LENGTH_OF_ONE_BIT * (BITS_PER_FRAME + 8); q += LENGTH_OF_ONE_BIT) {
+                        for (int q = 0; q < LENGTH_OF_ONE_BIT * (BITS_PER_FRAME); q += LENGTH_OF_ONE_BIT) {
                             auto accumulation = std::accumulate(decode.begin() + q, decode.begin() + q + LENGTH_OF_ONE_BIT, 0.0f);
                             if (accumulation > 0) {// Please do not make it short, we may change its logic here.
                                 output->push(true);
