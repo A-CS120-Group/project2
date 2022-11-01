@@ -36,7 +36,7 @@ public:
                 for (int i = 7; i >= 0; i--) { binaryOutput.push(static_cast<bool>((c >> i) & 1)); }
             }
             binaryOutputLock.exit();
-            generateOutput();
+            // TODO: Generate output
         };
         addAndMakeVisible(recordButton);
 
@@ -131,32 +131,6 @@ private:
     void releaseResources() override {
         delete reader;
         delete writer;
-    }
-
-    void generateOutput() {
-        // TODO: move the function to writer.h
-        auto count = 0;
-        binaryOutputLock.enter();
-        directOutputLock.enter();
-        while (!binaryOutput.empty()) {
-            if (count % BITS_PER_FRAME == 0) {
-                for (int i = 0; i < 10; ++i) { directOutput.push(0); }
-                for (auto i: preamble) { directOutput.push(i); }
-                for (int i = 0; i < LENGTH_OF_ONE_BIT * 8; ++i) { directOutput.push(0.45f); }
-            }
-            auto temp = binaryOutput.front();
-            binaryOutput.pop();
-            for (int i = 0; i < LENGTH_OF_ONE_BIT; ++i) {
-                if (temp) {
-                    directOutput.push(0.75f);
-                } else {
-                    directOutput.push(0);
-                }
-            }
-            ++count;
-        }
-        directOutputLock.exit();
-        binaryOutputLock.exit();
     }
 
 private:
