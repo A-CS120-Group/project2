@@ -33,6 +33,10 @@ public:
         sync = std::deque<float>(240, 0);
     }
 
+    ~Reader() override {
+        this->signalThreadShouldExit();
+    }
+
     void run() override {
         assert(input != nullptr);
         assert(output != nullptr);
@@ -66,8 +70,7 @@ public:
                     decode.push_back(nextValue);
                     if (decode.size() == LENGTH_OF_ONE_BIT * (BITS_PER_FRAME + 8)) {
                         protectOutput->enter();
-//                        for (int q = LENGTH_OF_ONE_BIT * 8; q < LENGTH_OF_ONE_BIT * (BITS_PER_FRAME + 8); q += LENGTH_OF_ONE_BIT) {
-                        for (int q = 0; q < LENGTH_OF_ONE_BIT * (BITS_PER_FRAME); q += LENGTH_OF_ONE_BIT) {
+                        for (int q = LENGTH_OF_ONE_BIT * 8; q < LENGTH_OF_ONE_BIT * (BITS_PER_FRAME + 8); q += LENGTH_OF_ONE_BIT) {
                             auto accumulation = std::accumulate(decode.begin() + q, decode.begin() + q + LENGTH_OF_ONE_BIT, 0.0f);
                             if (accumulation > 0) {// Please do not make it short, we may change its logic here.
                                 output->push(true);

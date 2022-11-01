@@ -27,7 +27,7 @@ public:
         recordButton.setSize(80, 40);
         recordButton.setCentrePosition(150, 140);
         recordButton.onClick = [this] {
-            status = 2;// TODO: Remember to remove this line
+            if (status != 0) return;
             std::ifstream f("INPUT.bin", std::ios::binary | std::ios::in);
             assert(f.is_open());
             char c;
@@ -37,20 +37,15 @@ public:
             }
             binaryOutputLock.exit();
             generateOutput();
-            //            status = 1;
-            directInputLock.enter();
-            while (!directOutput.empty()) {
-                directInput.push(directOutput.front());
-                directOutput.pop();
-            }
-            directInputLock.exit();
+            status = 1;
         };
         addAndMakeVisible(recordButton);
 
-        playbackButton.setButtonText("Receive");
+        playbackButton.setButtonText("Save");
         playbackButton.setSize(80, 40);
         playbackButton.setCentrePosition(450, 140);
         playbackButton.onClick = [this] {
+            if (status != 0) return;
             std::ofstream f("OUTPUT.bin", std::ios::binary | std::ios::out);
             auto count = 0;
             char c = 0;
@@ -96,10 +91,7 @@ private:
 
         std::vector<float> x(t.begin(), t.begin() + 240);
         preamble = cumtrapz(x, f);
-        for (float &i: preamble) {
-            i = sin(2.0f * PI * i);
-            //            std::cout << i << std::endl;
-        }
+        for (float &i: preamble) { i = sin(2.0f * PI * i); }
 
         initThreads();
     }
@@ -127,7 +119,11 @@ private:
                     float *writePosition = buffer->getWritePointer(channel);
                     directOutputLock.enter();
                     for (int i = 0; i < bufferSize; ++i) {
-                        if (directOutput.empty()) break;
+                        if (directOutput.empty()) {
+                            std::cout << "Finish sending!" << std::endl;
+                            status = 0;
+                            break;
+                        }
                         auto temp = directOutput.front();
                         writePosition[i] = temp;
                         directOutput.pop();
@@ -144,12 +140,6 @@ private:
                 break;
             case 1:
                 titleLabel.setText("Sending", juce::NotificationType::dontSendNotification);
-                break;
-            case 2:
-                titleLabel.setText("Listening", juce::NotificationType::dontSendNotification);
-                break;
-            case 3:
-                titleLabel.setText("Processing", juce::NotificationType::dontSendNotification);
                 break;
         }
     }

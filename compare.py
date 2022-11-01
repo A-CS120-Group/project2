@@ -8,7 +8,9 @@ with open("OUTPUT.bin", "rb") as file:
 
 print(input_file)
 print(output_file)
-assert len(input_file) == len(output_file), "Not the same length"
+if len(input_file) != len(output_file):
+    print(f"Not the same length: {len(input_file)} and {len(output_file)}")
+    exit(0)
 
 length = len(input_file)
 correct = 0
