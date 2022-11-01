@@ -31,7 +31,7 @@ std::vector<float> cumtrapz(std::vector<float> t, std::vector<float> f) {
 }
 
 unsigned int crc(const std::vector<bool> &source) {
-    static unsigned char sourceString[20];
+    static unsigned char sourceString[10000];
     int stringLength = ((int) source.size() - 1) / 8 + 1;
     for (int i = 0; i < stringLength; ++i) {
         unsigned q = 0;

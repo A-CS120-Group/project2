@@ -74,6 +74,7 @@ private:
         reader = new Reader(&directInput, &directInputLock, &binaryInput, &binaryInputLock);
         reader->startThread();
         writer = new Writer(&directOutput, &directOutputLock);
+        writer->startThread();
     }
 
 
