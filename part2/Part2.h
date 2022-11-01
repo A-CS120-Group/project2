@@ -1,5 +1,6 @@
 #include "reader.h"
 #include "utils.h"
+#include "writer.h"
 #include <JuceHeader.h>
 #include <chrono>
 #include <fstream>
@@ -27,7 +28,6 @@ public:
         recordButton.setSize(80, 40);
         recordButton.setCentrePosition(150, 140);
         recordButton.onClick = [this] {
-            if (status != 0) return;
             std::ifstream f("INPUT.bin", std::ios::binary | std::ios::in);
             assert(f.is_open());
             char c;
@@ -37,7 +37,6 @@ public:
             }
             binaryOutputLock.exit();
             generateOutput();
-            status = 1;
         };
         addAndMakeVisible(recordButton);
 
@@ -45,7 +44,6 @@ public:
         playbackButton.setSize(80, 40);
         playbackButton.setCentrePosition(450, 140);
         playbackButton.onClick = [this] {
-            if (status != 0) return;
             std::ofstream f("OUTPUT.bin", std::ios::binary | std::ios::out);
             auto count = 0;
             char c = 0;
@@ -75,6 +73,7 @@ private:
     void initThreads() {
         reader = new Reader(&directInput, &directInputLock, &binaryInput, &binaryInputLock);
         reader->startThread();
+        writer = new Writer(&directOutput, &directOutputLock);
     }
 
 
@@ -109,44 +108,32 @@ private:
             if ((!activeInputChannels[channel] || !activeOutputChannels[channel]) || maxInputChannels == 0) {
                 bufferToFill.buffer->clear(channel, bufferToFill.startSample, bufferToFill.numSamples);
             } else {
-                if (status == 0) {
-                    const float *data = buffer->getReadPointer(channel);
-                    directInputLock.enter();
-                    for (auto i = 0; i < bufferSize; ++i) { directInput.push(data[i]); }
-                    directInputLock.exit();
-                    buffer->clear();
-                } else if (status == 1) {
-                    float *writePosition = buffer->getWritePointer(channel);
-                    directOutputLock.enter();
-                    for (int i = 0; i < bufferSize; ++i) {
-                        if (directOutput.empty()) {
-                            std::cout << "Finish sending!" << std::endl;
-                            status = 0;
-                            break;
-                        }
-                        auto temp = directOutput.front();
-                        writePosition[i] = temp;
-                        directOutput.pop();
-                    }
-                    directOutputLock.exit();
+                // Read in PHY layer
+                const float *data = buffer->getReadPointer(channel);
+                directInputLock.enter();
+                for (auto i = 0; i < bufferSize; ++i) { directInput.push(data[i]); }
+                directInputLock.exit();
+                buffer->clear();
+                // Write if PHY layer wants
+                float *writePosition = buffer->getWritePointer(channel);
+                directOutputLock.enter();
+                for (int i = 0; i < bufferSize; ++i) {
+                    if (directOutput.empty()) { break; }
+                    writePosition[i] = directOutput.front();
+                    directOutput.pop();
                 }
+                directOutputLock.exit();
             }
-        }
-
-        const MessageManagerLock mmLock;
-        switch (status) {
-            case 0:
-                titleLabel.setText("Part1", juce::NotificationType::dontSendNotification);
-                break;
-            case 1:
-                titleLabel.setText("Sending", juce::NotificationType::dontSendNotification);
-                break;
         }
     }
 
-    void releaseResources() override { delete reader; }
+    void releaseResources() override {
+        delete reader;
+        delete writer;
+    }
 
     void generateOutput() {
+        // TODO: move the function to writer.h
         auto count = 0;
         binaryOutputLock.enter();
         directOutputLock.enter();
@@ -180,10 +167,11 @@ private:
     CriticalSection binaryInputLock;
 
     // Process Output
-    std::queue<bool> binaryOutput;
-    CriticalSection binaryOutputLock;
+    Writer *writer{nullptr};
     std::queue<float> directOutput;
     CriticalSection directOutputLock;
+    std::queue<bool> binaryOutput;
+    CriticalSection binaryOutputLock;
 
     std::vector<float> preamble;
 
@@ -191,8 +179,6 @@ private:
     juce::Label titleLabel;
     juce::TextButton recordButton;
     juce::TextButton playbackButton;
-
-    std::atomic<int> status{0};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainContentComponent)
 };

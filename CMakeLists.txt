@@ -29,6 +29,7 @@ elseif (${CURRENT_TARGET} STREQUAL "Project2_Part2")
             part2/utils.h
             part2/utils.cpp
             part2/reader.h
+            part2/writer.h
             )
 elseif (${CURRENT_TARGET} STREQUAL "Project1_Part4")
     target_sources(${CURRENT_TARGET}
