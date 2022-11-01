@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.23)
 
-set(CURRENT_TARGET "Project2_Part1")
+set(CURRENT_TARGET "Project2_Part2")
 
 project(${CURRENT_TARGET} VERSION 0.0.1)
 
@@ -21,13 +21,14 @@ if (${CURRENT_TARGET} STREQUAL "Project2_Part1")
             part1/utils.h
             part1/reader.h
             )
-elseif (${CURRENT_TARGET} STREQUAL "Project1_Part3")
+elseif (${CURRENT_TARGET} STREQUAL "Project2_Part2")
     target_sources(${CURRENT_TARGET}
             PRIVATE
-            part3/main.cpp
-            part3/Part3.h
-            part3/utils.h
-            part3/utils.cpp
+            part2/main.cpp
+            part2/Part2.h
+            part2/utils.h
+            part2/utils.cpp
+            part2/reader.h
             )
 elseif (${CURRENT_TARGET} STREQUAL "Project1_Part4")
     target_sources(${CURRENT_TARGET}
