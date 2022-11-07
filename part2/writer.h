@@ -43,10 +43,10 @@ public:
                 protectOutput->enter();
                 // PREAMBLE
                 for (auto b: preamble) { writeBool(b); }
-                // SEQ
-                writeInt((unsigned int) frame.seq, LENGTH_SEQ);
                 // LEN
                 writeInt((unsigned int) frame.size(), LENGTH_LEN);
+                // SEQ
+                writeInt((unsigned int) frame.seq, LENGTH_SEQ);
                 // BODY
                 for (auto b: frame.frame) { writeBool(b); }
                 // CRC

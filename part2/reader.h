@@ -85,9 +85,9 @@ public:
                     }
                 }
             }
-            // read SEQ, LEN
-            unsigned int numSEQ = readInt(LENGTH_SEQ);
+            // read LEN, SEQ
             unsigned int numLEN = readInt(LENGTH_LEN);
+            unsigned int numSEQ = readInt(LENGTH_SEQ);
             if (numLEN > MAX_LENGTH_BODY) {
                 // Too long! There must be some errors.
                 std::cout << "and discarded due to wrong length. (" << numLEN << "), seq: (" << numSEQ << ")"

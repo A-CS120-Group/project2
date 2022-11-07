@@ -4,10 +4,8 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
-#include <functional>
-#include <cmath>
+#include <chrono>
 
-#define PI acosf(-1)
 #define LENGTH_OF_ONE_BIT 6// Must be a number in 1/2/3/4/5/6/8/10
 #define MTU 512
 #define LENGTH_PREAMBLE 48
@@ -18,8 +16,8 @@
 
 /* Structure of a frame
  * PREAMBLE
- * SEQ      frame counter if > 0, else ACK counter < 0, else end signal;
  * LEN      the length of BODY;
+ * SEQ      +x: frame counter , -x: ACK counter, 0: end frame or ACK;
  * BODY
  * CRC
  */
@@ -37,18 +35,34 @@ class FrameType {
 public:
     FrameType() = delete;
 
-    FrameType(size_t sizeOfFrame, size_t numSEQ);
+    FrameType(size_t sizeOfFrame, short numSEQ);
 
-    FrameType(std::vector<bool> &value, size_t numSEQ) : frame(value), seq(numSEQ) {}
+    FrameType(std::vector<bool> &value, short numSEQ) : frame(value), seq(numSEQ) {}
 
     [[nodiscard]] unsigned int crc() const;
 
     [[nodiscard]] size_t size() const;
 
     std::vector<bool> frame;
-    size_t seq;
+    short seq;
+};
+
+using std::chrono::steady_clock;
+
+class MyTimer {
+public:
+    std::chrono::time_point<steady_clock> start;
+
+    MyTimer() : start(steady_clock::now()) {}
+
+    void restart() {
+        start = steady_clock::now();
+    }
+
+    [[nodiscard]]double duration() const {
+        auto now = steady_clock::now();
+        return std::chrono::duration<double>(now - start).count();
+    }
 };
 
 unsigned int crc(const std::vector<bool> &source);
-
-bool crcCheck(std::vector<bool> source);

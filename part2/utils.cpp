@@ -1,12 +1,15 @@
 #include "utils.h"
 
-FrameType::FrameType(size_t sizeOfFrame, size_t numSEQ) : seq(numSEQ) {
+FrameType::FrameType(size_t sizeOfFrame, short numSEQ) : seq(numSEQ) {
     assert(sizeOfFrame != 0);
     frame.resize(sizeOfFrame);
 }
 
 unsigned int FrameType::crc() const {
-    return ::crc(frame);
+    std::vector<bool> wholeFrame(LENGTH_SEQ + frame.size());
+    for (int i = 0; i < LENGTH_SEQ; ++i) { wholeFrame[i] = seq >> i & 1; }
+    for (int i = 0; i < frame.size(); ++i) { wholeFrame[i + LENGTH_SEQ] = frame[i]; }
+    return ::crc(wholeFrame);
 }
 
 size_t FrameType::size() const {
@@ -24,13 +27,4 @@ unsigned int crc(const std::vector<bool> &source) {
     boost::crc_32_type crc;
     crc.process_bytes(sourceString, stringLength);
     return crc.checksum();
-}
-
-bool crcCheck(std::vector<bool> source) {
-    unsigned int check = 0;
-    for (int i = 0; i < LENGTH_CRC; ++i) {
-        check |= *source.rbegin() << i;
-        source.pop_back();
-    }
-    return check == crc(source);
 }

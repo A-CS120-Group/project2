@@ -2,17 +2,12 @@
 #include "utils.h"
 #include "writer.h"
 #include <JuceHeader.h>
-#include <chrono>
 #include <fstream>
 #include <queue>
 #include <thread>
 #include <vector>
 
 #pragma once
-
-using std::chrono::duration_cast;
-using std::chrono::high_resolution_clock;
-using std::chrono::milliseconds;
 
 class MainContentComponent : public juce::AudioAppComponent {
 public:
@@ -30,22 +25,51 @@ public:
         sendButton.onClick = [this] {
             std::ifstream fin("INPUT.bin", std::ios::binary | std::ios::in);
             assert(fin.is_open());
-            std::vector<bool> data; // reserved for length
+            std::vector<bool> data;
             for (char c; fin.get(c);) {
                 for (int i = 7; i >= 0; i--)
                     data.push_back(static_cast<bool>((c >> i) & 1));
             }
-            // Read file is very fast, so we reduce the overhead of critical sections.
-            binaryOutputLock.enter();
+            short seq = 0;
+            // Read file is very fast, so we reduce the overhead of critical sections. But I need ACK~
             for (size_t i = 0; i < data.size(); i += MAX_LENGTH_BODY) {
-                size_t jEnd = std::min(i + MAX_LENGTH_BODY, data.size());
-                FrameType frame(jEnd - i, count);
+                size_t jEnd = i + MAX_LENGTH_BODY;
+                if (jEnd < data.size()) {
+                    ++seq;
+                } else {
+                    seq = 0; // Last frame
+                    jEnd = data.size();
+                }
+                FrameType frame(jEnd - i, seq);
                 for (size_t j = i; j < jEnd; ++j)
                     frame.frame[j - i] = data[j];
-                ++count;
+                binaryOutputLock.enter();
                 binaryOutput.push(frame);
+                binaryOutputLock.exit();
+                std::cout << "Frame sent, seq = " << seq << std::endl;
+                // Receive ACK
+                bool receiveACK = false;
+                for (int retryTimes = 3; retryTimes >= 0 && !receiveACK; --retryTimes) {
+                    MyTimer timer;
+                    while (timer.duration() < 0.1 && !receiveACK) { // TODO: test RTT and set a reasonable timeout
+                        binaryInputLock.enter();
+                        if (!binaryInput.empty()) {
+                            FrameType ACKFrame = std::move(binaryInput.front());
+                            binaryInput.pop();
+                            if (seq == -ACKFrame.seq) receiveACK = true;
+                            else std::cerr << "mismatched ACK seq = " << ACKFrame.seq << std::endl;
+                        }
+                        binaryInputLock.exit();
+                    }
+                    if (!receiveACK) std::cerr << "ACK Timeout! retryTimes = " << retryTimes << std::endl;
+                }
+                if (receiveACK) {
+                    std::cout << "ACK received, seq = " << seq << std::endl;
+                } else {
+                    std::cerr << "Link Error!" << std::endl;
+                    break;
+                }
             }
-            binaryOutputLock.exit();
         };
         addAndMakeVisible(sendButton);
 
@@ -54,12 +78,22 @@ public:
         saveButton.setCentrePosition(450, 140);
         saveButton.onClick = [this] {
             std::ofstream fout("OUTPUT.bin", std::ios::binary | std::ios::out);
-            int ACKCount = 0;
-            for (int i = 0; i < 10; ++i) {//TODO: only test several frames
+            while (true) {
                 binaryInputLock.enter();
-                while (!binaryInput.empty()) {
-                    FrameType frame = binaryInput.front();
+                if (!binaryInput.empty()) {
+                    FrameType frame = std::move(binaryInput.front());
+                    binaryInput.pop();
                     for (auto b: frame.frame) fout << b;
+                    std::cout << "frame received, seq = " << frame.seq << std::endl;
+                    // Send ACK
+                    frame.seq *= -1;
+                    frame.frame.clear();
+                    binaryOutputLock.enter();
+                    binaryOutput.push(frame);
+                    binaryOutputLock.exit();
+                    std::cout << "ACK sent, seq = " << frame.seq << std::endl;
+                    // End of transmission
+                    if (frame.seq == 0) break;
                 }
                 binaryInputLock.exit();
             }
@@ -135,8 +169,6 @@ private:
     CriticalSection directOutputLock;
     std::queue<FrameType> binaryOutput;
     CriticalSection binaryOutputLock;
-
-    unsigned int count = 0;
 
     // GUI related
     juce::Label titleLabel;
