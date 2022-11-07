@@ -77,14 +77,14 @@ public:
                     sync.push_back(nextValue);
                     if (detectPreamble(sync)) {
                         std::cout << "Header found ";
+                        protectInput->enter();
+                        input->pop();
+                        input->pop();
+                        protectInput->exit();
                         break;
                     }
                 }
             }
-            // Eat overhead, pretty confident that there would be enough element left
-            protectInput->enter();
-            for (int i = 0; i < LENGTH_OF_ONE_BIT * 8; ++i) { input->pop(); }
-            protectInput->exit();
             // read SEQ, LEN
             unsigned int numSEQ = readInt(LENGTH_SEQ);
             unsigned int numLEN = readInt(LENGTH_LEN);

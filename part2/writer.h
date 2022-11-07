@@ -28,7 +28,7 @@ public:
         assert(protectInput != nullptr);
         assert(protectOutput != nullptr);
         auto writeBool = [this](bool bit) {
-            for (int i = 0; i < LENGTH_OF_ONE_BIT; ++i) { this->output->push(bit ? 0.75f : 0); }
+            for (int i = 0; i < LENGTH_OF_ONE_BIT; ++i) { this->output->push(bit ? 1.0f : 0); }
         };
         auto writeInt = [writeBool](unsigned int x, int len) {
             for (int i = 0; i < len; ++i) { writeBool((bool) (x >> i & 1)); }
@@ -43,8 +43,6 @@ public:
                 protectOutput->enter();
                 // PREAMBLE
                 for (auto b: preamble) { writeBool(b); }
-                // Overhead
-                for (int i = 0; i < LENGTH_OF_ONE_BIT * 8; ++i) { output->push(0.45f); }
                 // SEQ
                 writeInt((unsigned int) frame.seq, LENGTH_SEQ);
                 // LEN
