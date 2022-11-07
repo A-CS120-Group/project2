@@ -41,9 +41,9 @@ public:
 
     FrameType(std::vector<bool> &value, size_t numSEQ) : frame(value), seq(numSEQ) {}
 
-    unsigned int crc() const;
+    [[nodiscard]] unsigned int crc() const;
 
-    size_t size() const;
+    [[nodiscard]] size_t size() const;
 
     std::vector<bool> frame;
     size_t seq;
