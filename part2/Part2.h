@@ -28,15 +28,22 @@ public:
         recordButton.setSize(80, 40);
         recordButton.setCentrePosition(150, 140);
         recordButton.onClick = [this] {
-            std::ifstream f("INPUT.bin", std::ios::binary | std::ios::in);
-            assert(f.is_open());
-            char c;
-            binaryOutputLock.enter();
-            while (f.get(c)) {
-                for (int i = 7; i >= 0; i--) { binaryOutput.push(static_cast<bool>((c >> i) & 1)); }
+            std::ifstream fin("INPUT.bin", std::ios::binary | std::ios::in);
+            assert(fin.is_open());
+            std::vector<bool> data; // reserved for length
+            for (char c; fin.get(c);) {
+                for (int i = 7; i >= 0; i--)
+                    data.push_back(static_cast<bool>((c >> i) & 1));
             }
-            binaryOutputLock.exit();
-            // TODO: Generate output
+            for (size_t i = 0; i < data.size(); i += MAX_LENGTH_BODY) {
+                FrameType frame;
+                size_t jEnd = std::min(i + MAX_LENGTH_BODY, data.size());
+                for (size_t j = i; j < jEnd; ++j)
+                    frame.push_back(data[j]);
+                binaryOutputLock.enter();
+                binaryOutput.push(frame);
+                binaryOutputLock.exit();
+            }
         };
         addAndMakeVisible(recordButton);
 
@@ -44,22 +51,16 @@ public:
         playbackButton.setSize(80, 40);
         playbackButton.setCentrePosition(450, 140);
         playbackButton.onClick = [this] {
-            std::ofstream f("OUTPUT.bin", std::ios::binary | std::ios::out);
-            auto count = 0;
-            char c = 0;
-            binaryInputLock.enter();
-            while (!binaryInput.empty()) {
-                auto temp = binaryInput.front();
-                binaryInput.pop();
-                ++count;
-                c <<= 1;
-                c = temp ? char(c + 1) : char(c);
-                if (count % 8 == 0) {
-                    f << c;
-                    c = 0;
+            std::ofstream fout("OUTPUT.bin", std::ios::binary | std::ios::out);
+            int ACKCount = 0;
+            for (int i = 0; i < 10; ++i) {//TODO: only test several frames
+                binaryInputLock.enter();
+                while (!binaryInput.empty()) {
+                    FrameType frame = binaryInput.front();
+                    for (auto b: frame)fout << b;
                 }
+                binaryInputLock.exit();
             }
-            binaryInputLock.exit();
         };
         addAndMakeVisible(playbackButton);
 
@@ -73,26 +74,12 @@ private:
     void initThreads() {
         reader = new Reader(&directInput, &directInputLock, &binaryInput, &binaryInputLock);
         reader->startThread();
-        writer = new Writer(&directOutput, &directOutputLock);
+        writer = new Writer(&binaryOutput, &binaryOutputLock, &directOutput, &directOutputLock);
         writer->startThread();
     }
 
 
-    void prepareToPlay([[maybe_unused]] int samplesPerBlockExpected, double sampleRate) override {
-        std::vector<float> t;
-        t.reserve((size_t) sampleRate);
-        std::cout << sampleRate << std::endl;
-        for (int i = 0; i <= sampleRate; ++i) { t.push_back((float) i / (float) sampleRate); }
-
-        auto f = linspace(2000, 10000, 120);
-        auto f_temp = linspace(10000, 2000, 120);
-        f.reserve(f.size() + f_temp.size());
-        f.insert(std::end(f), std::begin(f_temp), std::end(f_temp));
-
-        std::vector<float> x(t.begin(), t.begin() + 240);
-        preamble = cumtrapz(x, f);
-        for (float &i: preamble) { i = sin(2.0f * PI * i); }
-
+    void prepareToPlay([[maybe_unused]]int samplesPerBlockExpected, [[maybe_unused]]double sampleRate) override {
         initThreads();
     }
 
@@ -138,17 +125,15 @@ private:
     Reader *reader{nullptr};
     std::queue<float> directInput;
     CriticalSection directInputLock;
-    std::queue<bool> binaryInput;
+    std::queue<FrameType> binaryInput;
     CriticalSection binaryInputLock;
 
     // Process Output
     Writer *writer{nullptr};
     std::queue<float> directOutput;
     CriticalSection directOutputLock;
-    std::queue<bool> binaryOutput;
+    std::queue<FrameType> binaryOutput;
     CriticalSection binaryOutputLock;
-
-    std::vector<float> preamble;
 
     // GUI related
     juce::Label titleLabel;

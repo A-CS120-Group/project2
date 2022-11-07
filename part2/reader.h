@@ -10,28 +10,16 @@
 class Reader : public Thread {
 public:
     Reader() = delete;
+
     Reader(const Reader &) = delete;
+
     Reader(const Reader &&) = delete;
 
 
-    explicit Reader(std::queue<float> *bufferIn, CriticalSection *lockInput, std::queue<bool> *bufferOut, CriticalSection *lockOutput)
-        : Thread("Reader"), input(bufferIn), output(bufferOut), protectInput(lockInput), protectOutput(lockOutput) {
-        auto sampleRate = 48000;
-        std::vector<float> t;
-        t.reserve((size_t) sampleRate);
-        for (int i = 0; i <= sampleRate; ++i) { t.push_back((float) i / (float) sampleRate); }
-
-        auto f = linspace(2000, 10000, 120);
-        auto f_temp = linspace(10000, 2000, 120);
-        f.reserve(f.size() + f_temp.size());
-        f.insert(std::end(f), std::begin(f_temp), std::end(f_temp));
-
-        std::vector<float> x(t.begin(), t.begin() + 240);
-        preamble = cumtrapz(x, f);
-        for (float &i: preamble) { i = sin(2.0f * PI * i); }
-
-        sync = std::deque<float>(240, 0);
-    }
+    explicit Reader(std::queue<float> *bufferIn, CriticalSection *lockInput,
+                    std::queue<FrameType> *bufferOut, CriticalSection *lockOutput)
+            : Thread("Reader"), input(bufferIn), output(bufferOut), protectInput(lockInput),
+              protectOutput(lockOutput) {}
 
     ~Reader() override {
         this->signalThreadShouldExit();
@@ -42,69 +30,70 @@ public:
         assert(output != nullptr);
         assert(protectInput != nullptr);
         assert(protectOutput != nullptr);
+        auto readBool = [this]() {
+            while (!threadShouldExit()) {
+                protectInput->enter();
+                if (input->empty()) protectInput->exit();
+                else {
+                    float nextValue = input->front();
+                    // TODO:
+                }
+            }
+            return false;
+        };
+        auto readInt = [readBool](int len) {
+            unsigned int ret = 0;
+            for (int i = 0; i < len; ++i) { ret |= readBool() << i; }
+            return ret;
+        };
         while (!threadShouldExit()) {
-            protectInput->enter();
-            if (!input->empty()) {// Not fully utilized yet
-
-                float nextValue = input->front();
-                input->pop();
-                protectInput->exit();
-
-                power = power * (63.0f / 64.0f) + nextValue * nextValue / 64.0f;
-                if (state == 0) {
+            // wait for PREAMBLE
+            sync = std::deque<float>(LENGTH_PREAMBLE * LENGTH_OF_ONE_BIT, 0);
+            while (!threadShouldExit()) {
+                protectInput->enter();
+                if (input->empty()) { protectInput->exit(); }
+                else {
+                    float nextValue = input->front();
+                    input->pop();
+                    protectInput->exit();
                     sync.pop_front();
                     sync.push_back(nextValue);
-                    auto syncPower = static_cast<float>(std::inner_product(sync.begin(), sync.end(), preamble.begin(), 0.0f) / 100.0f);
-                    if (syncPower > power * 2 && syncPower > syncPower_localMax && syncPower > 0.05f) {
-                        syncPower_localMax = syncPower;
-                        start_index = count;
-                    } else if (count - start_index > 110 && start_index != -1) {
-                        syncPower_localMax = 0;
-                        state = 1;
-                        //decode = std::vector<float>(inputBuffer.begin() + start_index + 1, inputBuffer.begin() + i + 1); // copy the last elements of sync
-                        decode = std::vector<float>(sync.end() - 110 - 1, sync.end());
+                    /*TODO: preamble detecting*/
+                    if (/*TODO: preamble detected*/) {
                         std::cout << "Header found" << std::endl;
-                        sync = std::deque<float>(240, 0);
-                    }
-                } else {
-                    decode.push_back(nextValue);
-                    if (decode.size() == LENGTH_OF_ONE_BIT * (BITS_PER_FRAME + 8)) {
-                        protectOutput->enter();
-                        for (int q = LENGTH_OF_ONE_BIT * 8; q < LENGTH_OF_ONE_BIT * (BITS_PER_FRAME + 8); q += LENGTH_OF_ONE_BIT) {
-                            auto accumulation = std::accumulate(decode.begin() + q, decode.begin() + q + LENGTH_OF_ONE_BIT, 0.0f);
-                            if (accumulation > 0) {// Please do not make it short, we may change its logic here.
-                                output->push(true);
-                            } else {
-                                output->push(false);
-                            }
-                        }
-                        protectOutput->exit();
-                        start_index = -1;
-                        decode.clear();
-                        state = 0;
+                        break;
                     }
                 }
-                ++count;
-            } else {
-                protectInput->exit();
             }
+            // read SEQ, LEN
+            short numSEQ = readInt(LENGTH_SEQ);
+            short numLEN = readInt(LENGTH_LEN);
+            if (numLEN > MTU) {
+                // TODO: Too long! There must be some errors.
+            }
+            // read BODY
+            FrameType frame(numLEN);
+            for (int i = 0; i < numLEN; ++i)
+                frame[i] = readBool();
+            // read CRC
+            unsigned int numCRC = readInt(LENGTH_CRC);
+            if (crc(frame) != numCRC) {
+                // TODO: CRC error!
+            }
+            protectOutput->enter();
+            output->push(frame);
+            protectOutput->exit();
         }
     }
 
 private:
     std::queue<float> *input{nullptr};
-    std::queue<bool> *output{nullptr};
+    std::queue<FrameType> *output{nullptr};
     CriticalSection *protectInput;
     CriticalSection *protectOutput;
 
-    std::vector<float> preamble;
-    int count{0};
-    float power = 0;
-    int start_index = -1;
+    int count = 0;
     std::deque<float> sync;
-    std::vector<float> decode;
-    float syncPower_localMax = 0;
-    int state = 0;// 0 sync; 1 decode
 };
 
 #endif//READER_H
