@@ -44,14 +44,13 @@ public:
                 // PREAMBLE
                 for (auto b: preamble) { writeBool(b); }
                 // SEQ
-                writeInt(count, LENGTH_SEQ);
-                ++count;
+                writeInt((unsigned int) frame.seq, LENGTH_SEQ);
                 // LEN
                 writeInt((unsigned int) frame.size(), LENGTH_LEN);
                 // BODY
-                for (auto b: frame) { writeBool(b); };
+                for (auto b: frame.frame) { writeBool(b); }
                 // CRC
-                writeInt(crc(frame), LENGTH_CRC);
+                writeInt(frame.crc(), LENGTH_CRC);
                 protectOutput->exit();
             } else
                 protectInput->exit();
@@ -63,8 +62,6 @@ private:
     std::queue<float> *output{nullptr};
     CriticalSection *protectInput;
     CriticalSection *protectOutput;
-
-    unsigned int count = 0;
 };
 
 #endif//WRITER_H

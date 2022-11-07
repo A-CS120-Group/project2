@@ -38,10 +38,11 @@ public:
             // Read file is very fast, so we reduce the overhead of critical sections.
             binaryOutputLock.enter();
             for (size_t i = 0; i < data.size(); i += MAX_LENGTH_BODY) {
-                FrameType frame;
                 size_t jEnd = std::min(i + MAX_LENGTH_BODY, data.size());
+                FrameType frame(jEnd - i, count);
                 for (size_t j = i; j < jEnd; ++j)
-                    frame.push_back(data[j]);
+                    frame.frame[j - i] = data[j];
+                ++count;
                 binaryOutput.push(frame);
             }
             binaryOutputLock.exit();
@@ -58,7 +59,7 @@ public:
                 binaryInputLock.enter();
                 while (!binaryInput.empty()) {
                     FrameType frame = binaryInput.front();
-                    for (auto b: frame)fout << b;
+                    for (auto b: frame.frame) fout << b;
                 }
                 binaryInputLock.exit();
             }
@@ -134,6 +135,8 @@ private:
     CriticalSection directOutputLock;
     std::queue<FrameType> binaryOutput;
     CriticalSection binaryOutputLock;
+
+    unsigned int count = 0;
 
     // GUI related
     juce::Label titleLabel;

@@ -1,5 +1,18 @@
 #include "utils.h"
 
+FrameType::FrameType(size_t sizeOfFrame, size_t numSEQ) : seq(numSEQ) {
+    assert(sizeOfFrame != 0);
+    frame.resize(sizeOfFrame);
+}
+
+unsigned int FrameType::crc() const {
+    return ::crc(frame);
+}
+
+size_t FrameType::size() const {
+    return frame.size();
+}
+
 unsigned int crc(const std::vector<bool> &source) {
     static unsigned char sourceString[10000];
     int stringLength = ((int) source.size() - 1) / 8 + 1;

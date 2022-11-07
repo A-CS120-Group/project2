@@ -93,18 +93,19 @@ public:
                 continue;
             }
             // read BODY
-            FrameType frame(numLEN);
+            FrameType frame(numLEN, numSEQ);
             for (auto i = 0u; i < numLEN; ++i)
-                frame[i] = readBool();
+                frame.frame[i] = readBool();
             // read CRC
             unsigned int numCRC = readInt(LENGTH_CRC);
-            if (crc(frame) != numCRC) {
+            if (frame.crc() != numCRC) {
                 std::cout << "and discarded due to failing CRC check. (sequence " << numSEQ << ")" << std::endl;
                 continue;
             }
             protectOutput->enter();
             output->push(frame);
             protectOutput->exit();
+            std::cout << "and SUCCEED! (sequence " << numSEQ << ")" << std::endl;
         }
     }
 

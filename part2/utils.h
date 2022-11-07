@@ -25,16 +25,29 @@
  */
 
 constexpr bool preamble[LENGTH_PREAMBLE]
-            {1, 0, 1, 0, 1, 0, 1, 0,
-             1, 0, 1, 0, 1, 0, 1, 0,
-             1, 0, 1, 0, 1, 0, 1, 0,
-             1, 0, 1, 0, 1, 0, 1, 0,
-             1, 0, 1, 0, 1, 0, 1, 0,
-             1, 0, 1, 0, 1, 0, 1, 1,
-            };
+        {1, 0, 1, 0, 1, 0, 1, 0,
+         1, 0, 1, 0, 1, 0, 1, 0,
+         1, 0, 1, 0, 1, 0, 1, 0,
+         1, 0, 1, 0, 1, 0, 1, 0,
+         1, 0, 1, 0, 1, 0, 1, 0,
+         1, 0, 1, 0, 1, 0, 1, 1,
+        };
 
-using FrameType = std::vector<bool>;
-// TODO: FrameType = struct{std::vector<bool>, int (numSEQ)};
+class FrameType {
+public:
+    FrameType() = delete;
+
+    FrameType(size_t sizeOfFrame, size_t numSEQ);
+
+    FrameType(std::vector<bool> &value, size_t numSEQ) : frame(value), seq(numSEQ) {}
+
+    unsigned int crc() const;
+
+    size_t size() const;
+
+    std::vector<bool> frame;
+    size_t seq;
+};
 
 unsigned int crc(const std::vector<bool> &source);
 
