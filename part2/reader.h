@@ -38,8 +38,10 @@ public:
                 if (input->empty()) protectInput->exit();
                 else {
                     float nextValue = input->front();
+                    input->pop();
                     protectInput->exit();
-                    avg += nextValue / LENGTH_OF_ONE_BIT; // Divide here - in case we have a complex float-to-bool method
+                    // Divide here - in case we have a complex float-to-bool method
+                    avg += nextValue / LENGTH_OF_ONE_BIT;
                     ++temp;
                     if (temp == LENGTH_OF_ONE_BIT) {
                         return (avg > 0.0f);
@@ -79,17 +81,17 @@ public:
                     }
                 }
             }
+            // Eat overhead, pretty confident that there would be enough element left
+            protectInput->enter();
+            for (int i = 0; i < LENGTH_OF_ONE_BIT * 8; ++i) { input->pop(); }
+            protectInput->exit();
             // read SEQ, LEN
             unsigned int numSEQ = readInt(LENGTH_SEQ);
-            if (numSEQ > MTU) {
-                // Too big! There must be some errors.
-                std::cout << "and discarded due to wrong sequence." << std::endl;
-                continue;
-            }
             unsigned int numLEN = readInt(LENGTH_LEN);
-            if (numLEN > MTU) {
+            if (numLEN > MAX_LENGTH_BODY) {
                 // Too long! There must be some errors.
-                std::cout << "and discarded due to wrong length." << std::endl;
+                std::cout << "and discarded due to wrong length. (" << numLEN << "), seq: (" << numSEQ << ")"
+                          << std::endl;
                 continue;
             }
             // read BODY
@@ -114,8 +116,6 @@ private:
     std::queue<FrameType> *output{nullptr};
     CriticalSection *protectInput;
     CriticalSection *protectOutput;
-
-    int count = 0;
 };
 
 #endif//READER_H

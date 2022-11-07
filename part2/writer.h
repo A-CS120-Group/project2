@@ -43,6 +43,8 @@ public:
                 protectOutput->enter();
                 // PREAMBLE
                 for (auto b: preamble) { writeBool(b); }
+                // Overhead
+                for (int i = 0; i < LENGTH_OF_ONE_BIT * 8; ++i) { output->push(0.45f); }
                 // SEQ
                 writeInt((unsigned int) frame.seq, LENGTH_SEQ);
                 // LEN
