@@ -18,11 +18,20 @@
 
 /* Structure of a frame
  * PREAMBLE
- * SEQ      frame counter if it > 0, else ACK counter it < 0, else end signal;
+ * SEQ      frame counter if > 0, else ACK counter < 0, else end signal;
  * LEN      the length of BODY;
  * BODY
  * CRC
  */
+
+constexpr bool preamble[LENGTH_PREAMBLE]
+            {1, 0, 1, 0, 1, 0, 1, 0,
+             1, 0, 1, 0, 1, 0, 1, 0,
+             1, 0, 1, 0, 1, 0, 1, 0,
+             1, 0, 1, 0, 1, 0, 1, 0,
+             1, 0, 1, 0, 1, 0, 1, 0,
+             1, 0, 1, 0, 1, 0, 1, 1,
+            };
 
 using FrameType = std::vector<bool>;
 // TODO: FrameType = struct{std::vector<bool>, int (numSEQ)};

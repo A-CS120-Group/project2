@@ -44,10 +44,10 @@ public:
                 // PREAMBLE
                 for (auto b: preamble) { writeBool(b); }
                 // SEQ
-                ++count;
                 writeInt(count, LENGTH_SEQ);
+                ++count;
                 // LEN
-                writeInt(frame.size(), LENGTH_LEN);
+                writeInt((unsigned int) frame.size(), LENGTH_LEN);
                 // BODY
                 for (auto b: frame) { writeBool(b); };
                 // CRC
@@ -64,15 +64,7 @@ private:
     CriticalSection *protectInput;
     CriticalSection *protectOutput;
 
-    int count = 0;
-    static constexpr bool preamble[LENGTH_PREAMBLE]
-            {1, 0, 1, 0, 1, 0, 1, 0,
-             1, 0, 1, 0, 1, 0, 1, 0,
-             1, 0, 1, 0, 1, 0, 1, 0,
-             1, 0, 1, 0, 1, 0, 1, 0,
-             1, 0, 1, 0, 1, 0, 1, 0,
-             1, 0, 1, 0, 1, 0, 1, 1,
-            };
+    unsigned int count = 0;
 };
 
 #endif//WRITER_H

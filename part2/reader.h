@@ -31,24 +31,39 @@ public:
         assert(protectInput != nullptr);
         assert(protectOutput != nullptr);
         auto readBool = [this]() {
+            auto temp = 0;
+            auto avg = 0.0f;
             while (!threadShouldExit()) {
                 protectInput->enter();
                 if (input->empty()) protectInput->exit();
                 else {
                     float nextValue = input->front();
-                    // TODO:
+                    protectInput->exit();
+                    avg += nextValue / LENGTH_OF_ONE_BIT; // Divide here - in case we have a complex float-to-bool method
+                    ++temp;
+                    if (temp == LENGTH_OF_ONE_BIT) {
+                        return (avg > 0.0f);
+                    }
                 }
             }
             return false;
         };
         auto readInt = [readBool](int len) {
             unsigned int ret = 0;
-            for (int i = 0; i < len; ++i) { ret |= readBool() << i; }
+            for (int i = 0; i < len; ++i) { ret |= static_cast<unsigned int>(readBool() << i); }
             return ret;
+        };
+        auto detectPreamble = [](const std::deque<float> &compare) {
+            for (auto i = 0; i < LENGTH_PREAMBLE; ++i) {
+                auto temp = std::accumulate(compare.begin() + i * LENGTH_OF_ONE_BIT,
+                                            compare.begin() + (i + 1) * LENGTH_OF_ONE_BIT, 0.0f);
+                if (preamble[i] != (temp > 0)) return false;
+            }
+            return true;
         };
         while (!threadShouldExit()) {
             // wait for PREAMBLE
-            sync = std::deque<float>(LENGTH_PREAMBLE * LENGTH_OF_ONE_BIT, 0);
+            auto sync = std::deque<float>(LENGTH_PREAMBLE * LENGTH_OF_ONE_BIT, 0);
             while (!threadShouldExit()) {
                 protectInput->enter();
                 if (input->empty()) { protectInput->exit(); }
@@ -58,27 +73,34 @@ public:
                     protectInput->exit();
                     sync.pop_front();
                     sync.push_back(nextValue);
-                    /*TODO: preamble detecting*/
-                    if (/*TODO: preamble detected*/) {
-                        std::cout << "Header found" << std::endl;
+                    if (detectPreamble(sync)) {
+                        std::cout << "Header found ";
                         break;
                     }
                 }
             }
             // read SEQ, LEN
-            short numSEQ = readInt(LENGTH_SEQ);
-            short numLEN = readInt(LENGTH_LEN);
+            unsigned int numSEQ = readInt(LENGTH_SEQ);
+            if (numSEQ > MTU) {
+                // Too big! There must be some errors.
+                std::cout << "and discarded due to wrong sequence." << std::endl;
+                continue;
+            }
+            unsigned int numLEN = readInt(LENGTH_LEN);
             if (numLEN > MTU) {
-                // TODO: Too long! There must be some errors.
+                // Too long! There must be some errors.
+                std::cout << "and discarded due to wrong length." << std::endl;
+                continue;
             }
             // read BODY
             FrameType frame(numLEN);
-            for (int i = 0; i < numLEN; ++i)
+            for (auto i = 0u; i < numLEN; ++i)
                 frame[i] = readBool();
             // read CRC
             unsigned int numCRC = readInt(LENGTH_CRC);
             if (crc(frame) != numCRC) {
-                // TODO: CRC error!
+                std::cout << "and discarded due to failing CRC check. (sequence " << numSEQ << ")" << std::endl;
+                continue;
             }
             protectOutput->enter();
             output->push(frame);
@@ -93,7 +115,6 @@ private:
     CriticalSection *protectOutput;
 
     int count = 0;
-    std::deque<float> sync;
 };
 
 #endif//READER_H

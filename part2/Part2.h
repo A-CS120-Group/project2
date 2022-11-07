@@ -24,10 +24,10 @@ public:
         titleLabel.setCentrePosition(300, 40);
         addAndMakeVisible(titleLabel);
 
-        recordButton.setButtonText("Send");
-        recordButton.setSize(80, 40);
-        recordButton.setCentrePosition(150, 140);
-        recordButton.onClick = [this] {
+        sendButton.setButtonText("Send");
+        sendButton.setSize(80, 40);
+        sendButton.setCentrePosition(150, 140);
+        sendButton.onClick = [this] {
             std::ifstream fin("INPUT.bin", std::ios::binary | std::ios::in);
             assert(fin.is_open());
             std::vector<bool> data; // reserved for length
@@ -35,22 +35,23 @@ public:
                 for (int i = 7; i >= 0; i--)
                     data.push_back(static_cast<bool>((c >> i) & 1));
             }
+            // Read file is very fast, so we reduce the overhead of critical sections.
+            binaryOutputLock.enter();
             for (size_t i = 0; i < data.size(); i += MAX_LENGTH_BODY) {
                 FrameType frame;
                 size_t jEnd = std::min(i + MAX_LENGTH_BODY, data.size());
                 for (size_t j = i; j < jEnd; ++j)
                     frame.push_back(data[j]);
-                binaryOutputLock.enter();
                 binaryOutput.push(frame);
-                binaryOutputLock.exit();
             }
+            binaryOutputLock.exit();
         };
-        addAndMakeVisible(recordButton);
+        addAndMakeVisible(sendButton);
 
-        playbackButton.setButtonText("Save");
-        playbackButton.setSize(80, 40);
-        playbackButton.setCentrePosition(450, 140);
-        playbackButton.onClick = [this] {
+        saveButton.setButtonText("Save");
+        saveButton.setSize(80, 40);
+        saveButton.setCentrePosition(450, 140);
+        saveButton.onClick = [this] {
             std::ofstream fout("OUTPUT.bin", std::ios::binary | std::ios::out);
             int ACKCount = 0;
             for (int i = 0; i < 10; ++i) {//TODO: only test several frames
@@ -62,7 +63,7 @@ public:
                 binaryInputLock.exit();
             }
         };
-        addAndMakeVisible(playbackButton);
+        addAndMakeVisible(saveButton);
 
         setSize(600, 300);
         setAudioChannels(1, 1);
@@ -77,7 +78,6 @@ private:
         writer = new Writer(&binaryOutput, &binaryOutputLock, &directOutput, &directOutputLock);
         writer->startThread();
     }
-
 
     void prepareToPlay([[maybe_unused]]int samplesPerBlockExpected, [[maybe_unused]]double sampleRate) override {
         initThreads();
@@ -137,8 +137,8 @@ private:
 
     // GUI related
     juce::Label titleLabel;
-    juce::TextButton recordButton;
-    juce::TextButton playbackButton;
+    juce::TextButton sendButton;
+    juce::TextButton saveButton;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainContentComponent)
 };
