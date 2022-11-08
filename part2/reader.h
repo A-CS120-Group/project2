@@ -78,8 +78,7 @@ public:
                     if (detectPreamble(sync)) {
                         std::cout << "Header found ";
                         protectInput->enter();
-                        input->pop();
-                        input->pop();
+                        if (!input->empty()) input->pop();
                         protectInput->exit();
                         break;
                     }

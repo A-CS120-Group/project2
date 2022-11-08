@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <chrono>
 
-#define LENGTH_OF_ONE_BIT 6// Must be a number in 1/2/3/4/5/6/8/10
+#define LENGTH_OF_ONE_BIT 4// Must be a number in 1/2/3/4/5/6/8/10
 #define MTU 512
 #define LENGTH_PREAMBLE 48
 #define LENGTH_SEQ 16

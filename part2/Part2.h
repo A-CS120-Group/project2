@@ -141,7 +141,7 @@ private:
                 float *writePosition = buffer->getWritePointer(channel);
                 directOutputLock.enter();
                 for (int i = 0; i < bufferSize; ++i) {
-                    if (directOutput.empty()) { break; }
+                    if (directOutput.empty()) { writePosition[i] = 0.75f; continue; }
                     writePosition[i] = directOutput.front();
                     directOutput.pop();
                 }
