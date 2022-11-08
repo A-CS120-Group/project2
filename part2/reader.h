@@ -55,33 +55,33 @@ public:
             for (int i = 0; i < len; ++i) { ret |= static_cast<unsigned int>(readBool() << i); }
             return ret;
         };
-        auto detectPreamble = [](const std::deque<float> &compare) {
-            for (auto i = 0; i < LENGTH_PREAMBLE; ++i) {
-                auto temp = std::accumulate(compare.begin() + i * LENGTH_OF_ONE_BIT,
-                                            compare.begin() + (i + 1) * LENGTH_OF_ONE_BIT, 0.0f);
-                if (preamble[i] != (temp > 0)) return false;
+        auto detectPreamble = [this](std::deque<float> &sync) { // sync[i] = Σ signal[i : i + LENGTH_OF_ONE_BIT]
+            protectInput->enter();
+            if (input->empty()) {
+                protectInput->exit();
+                return false;
             }
+            float nextValue = input->front();
+            input->pop();
+            protectInput->exit();
+            sync.pop_front();
+            sync.push_back(nextValue);
+            for (int i = 1; i < LENGTH_OF_ONE_BIT; ++i)
+                *(sync.rbegin() + i) += nextValue;
+            for (int i = 0; i < LENGTH_PREAMBLE; ++i)
+                if (preamble[i] != (sync[i * LENGTH_OF_ONE_BIT] > 0)) return false;
             return true;
         };
         while (!threadShouldExit()) {
             // wait for PREAMBLE
             auto sync = std::deque<float>(LENGTH_PREAMBLE * LENGTH_OF_ONE_BIT, 0);
             while (!threadShouldExit()) {
-                protectInput->enter();
-                if (input->empty()) { protectInput->exit(); }
-                else {
-                    float nextValue = input->front();
-                    input->pop();
+                if (detectPreamble(sync)) {
+                    std::cout << "Header found ";
+                    protectInput->enter();
+                    if (!input->empty()) input->pop();
                     protectInput->exit();
-                    sync.pop_front();
-                    sync.push_back(nextValue);
-                    if (detectPreamble(sync)) {
-                        std::cout << "Header found ";
-                        protectInput->enter();
-                        if (!input->empty()) input->pop();
-                        protectInput->exit();
-                        break;
-                    }
+                    break;
                 }
             }
             // read LEN, SEQ
@@ -94,7 +94,7 @@ public:
                 continue;
             }
             // read BODY
-            FrameType frame(numLEN, numSEQ);
+            FrameType frame(numLEN, (short) numSEQ);
             for (auto i = 0u; i < numLEN; ++i)
                 frame.frame[i] = readBool();
             // read CRC
