@@ -51,6 +51,7 @@ public:
                 for (auto b: frame.frame) { writeBool(b); }
                 // CRC
                 writeInt(frame.crc(), LENGTH_CRC);
+                std::cout << "Send frame " << frame.seq << std::endl;
                 protectOutput->exit();
             } else
                 protectInput->exit();

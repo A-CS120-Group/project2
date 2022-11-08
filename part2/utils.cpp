@@ -1,7 +1,6 @@
 #include "utils.h"
 
 FrameType::FrameType(size_t sizeOfFrame, short numSEQ) : seq(numSEQ) {
-    assert(sizeOfFrame != 0);
     frame.resize(sizeOfFrame);
 }
 

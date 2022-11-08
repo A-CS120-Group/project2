@@ -43,31 +43,35 @@ public:
                 FrameType frame(jEnd - i, seq);
                 for (size_t j = i; j < jEnd; ++j)
                     frame.frame[j - i] = data[j];
-                binaryOutputLock.enter();
-                binaryOutput.push(frame);
-                binaryOutputLock.exit();
-                std::cout << "Frame sent, seq = " << seq << std::endl;
-                // Receive ACK
-                bool receiveACK = false;
-                for (int retryTimes = 3; retryTimes >= 0 && !receiveACK; --retryTimes) {
-                    MyTimer timer;
-                    while (timer.duration() < 0.1 && !receiveACK) { // TODO: test RTT and set a reasonable timeout
-                        binaryInputLock.enter();
-                        if (!binaryInput.empty()) {
-                            FrameType ACKFrame = std::move(binaryInput.front());
-                            binaryInput.pop();
-                            if (seq == -ACKFrame.seq) receiveACK = true;
-                            else std::cerr << "mismatched ACK seq = " << ACKFrame.seq << std::endl;
+                for (int j = 0; j < 4; ++j) {// Resend at most 3 times
+                    binaryOutputLock.enter();
+                    binaryOutput.push(frame);
+                    binaryOutputLock.exit();
+                    std::cout << "Frame sent, seq = " << seq << std::endl;
+                    // Receive ACK
+                    bool receiveACK = false;
+                    for (int retryTimes = 10; retryTimes >= 0 && !receiveACK; --retryTimes) {
+                        MyTimer timer;
+                        while (timer.duration() < 0.1 && !receiveACK) {// TODO: test RTT and set a reasonable timeout
+                            binaryInputLock.enter();
+                            if (!binaryInput.empty()) {
+                                FrameType ACKFrame = std::move(binaryInput.front());
+                                binaryInput.pop();
+                                if (seq == -ACKFrame.seq) {
+                                    receiveACK = true;
+                                    std::cout << "ACK detected after waiting for " << timer.duration() << std::endl;
+                                } else
+                                    std::cerr << "mismatched ACK seq = " << ACKFrame.seq << std::endl;
+                            }
+                            binaryInputLock.exit();
                         }
-                        binaryInputLock.exit();
                     }
-                    if (!receiveACK) std::cerr << "ACK Timeout! retryTimes = " << retryTimes << std::endl;
-                }
-                if (receiveACK) {
-                    std::cout << "ACK received, seq = " << seq << std::endl;
-                } else {
-                    std::cerr << "Link Error!" << std::endl;
-                    break;
+                    if (receiveACK) {
+                        std::cout << "ACK received, seq = " << seq << std::endl;
+                        break;
+                    } else {
+                        std::cerr << "Link Error!, seq = " << seq << std::endl;
+                    }
                 }
             }
         };
@@ -114,8 +118,9 @@ private:
         writer->startThread();
     }
 
-    void prepareToPlay([[maybe_unused]]int samplesPerBlockExpected, [[maybe_unused]]double sampleRate) override {
+    void prepareToPlay([[maybe_unused]] int samplesPerBlockExpected, [[maybe_unused]] double sampleRate) override {
         initThreads();
+        std::cout << "Start" << std::endl;
     }
 
     void getNextAudioBlock(const juce::AudioSourceChannelInfo &bufferToFill) override {
@@ -141,7 +146,10 @@ private:
                 float *writePosition = buffer->getWritePointer(channel);
                 directOutputLock.enter();
                 for (int i = 0; i < bufferSize; ++i) {
-                    if (directOutput.empty()) { writePosition[i] = 0.75f; continue; }
+                    if (directOutput.empty()) {
+                        writePosition[i] = 0.45f;
+                        continue;
+                    }
                     writePosition[i] = directOutput.front();
                     directOutput.pop();
                 }
