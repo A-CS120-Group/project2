@@ -43,35 +43,34 @@ public:
                 FrameType frame(jEnd - i, seq);
                 for (size_t j = i; j < jEnd; ++j)
                     frame.frame[j - i] = data[j];
-                for (int j = 0; j < 4; ++j) {// Resend at most 3 times
+                bool receiveACK = false;
+                for (int resendTimes = 3; resendTimes >= 0 && !receiveACK; --resendTimes) {// Resend at most 3 times
                     binaryOutputLock.enter();
                     binaryOutput.push(frame);
                     binaryOutputLock.exit();
                     std::cout << "Frame sent, seq = " << seq << std::endl;
                     // Receive ACK
-                    bool receiveACK = false;
-                    for (int retryTimes = 10; retryTimes >= 0 && !receiveACK; --retryTimes) {
-                        MyTimer timer;
-                        while (timer.duration() < 0.1 && !receiveACK) {// TODO: test RTT and set a reasonable timeout
-                            binaryInputLock.enter();
-                            if (!binaryInput.empty()) {
-                                FrameType ACKFrame = std::move(binaryInput.front());
-                                binaryInput.pop();
-                                if (seq == -ACKFrame.seq) {
-                                    receiveACK = true;
-                                    std::cout << "ACK detected after waiting for " << timer.duration() << std::endl;
-                                } else
-                                    std::cerr << "mismatched ACK seq = " << ACKFrame.seq << std::endl;
-                            }
-                            binaryInputLock.exit();
+                    MyTimer timer;
+                    const double timeout = 1.0; // TODO: test RTT and set a reasonable timeout
+                    while (timer.duration() < timeout && !receiveACK) {
+                        binaryInputLock.enter();
+                        if (!binaryInput.empty()) {
+                            FrameType ACKFrame = std::move(binaryInput.front());
+                            binaryInput.pop();
+                            if (seq == -ACKFrame.seq) {
+                                receiveACK = true;
+                                std::cout << "ACK detected after waiting for " << timer.duration() << std::endl;
+                            } else
+                                std::cerr << "mismatched ACK seq = " << ACKFrame.seq << std::endl;
                         }
+                        binaryInputLock.exit();
                     }
-                    if (receiveACK) {
-                        std::cout << "ACK received, seq = " << seq << std::endl;
-                        break;
-                    } else {
-                        std::cerr << "Link Error!, seq = " << seq << std::endl;
-                    }
+                }
+                if (receiveACK) {
+                    std::cout << "ACK received, seq = " << seq << std::endl;
+                    break;
+                } else {
+                    std::cerr << "Link Error!, seq = " << seq << std::endl;
                 }
             }
         };
