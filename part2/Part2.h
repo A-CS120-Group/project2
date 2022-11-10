@@ -134,7 +134,7 @@ private:
 
     void prepareToPlay([[maybe_unused]] int samplesPerBlockExpected, [[maybe_unused]] double sampleRate) override {
         initThreads();
-        std::cout << "Start" << std::endl;
+        fprintf(stderr, "Main Thread Start\n");
     }
 
     void getNextAudioBlock(const juce::AudioSourceChannelInfo &bufferToFill) override {

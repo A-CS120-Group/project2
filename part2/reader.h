@@ -19,7 +19,7 @@ public:
                     CriticalSection *lockOutput)
             : Thread("Reader"), input(bufferIn), output(bufferOut), protectInput(lockInput),
               protectOutput(lockOutput) {
-        std::cout << "Reader Thread Start" << std::endl;
+        fprintf(stderr, "    Reader Thread Start\n");
     }
 
     ~Reader() override { this->signalThreadShouldExit(); }
