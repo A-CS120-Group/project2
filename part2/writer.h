@@ -55,7 +55,10 @@ public:
             for (auto b: frame.frame) { writeBool(b); }
             // CRC
             writeInt((int) frame.crc());
-            std::cout << "Send frame " << frame.seq << std::endl;
+            std::string logString;
+            std::ostringstream logOut(logString);
+            logOut << "Send frame " << frame.seq << std::endl;
+            std::cout << logString;
             protectOutput->exit();
         }
     }

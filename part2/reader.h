@@ -78,7 +78,10 @@ public:
                 if (isPreamble) return;
             }
         };
+        std::string logString;
+        std::ostringstream logOut(logString);
         while (!threadShouldExit()) {
+            std::cout << logString;
             // wait for PREAMBLE
             waitForPreamble();
             if (threadShouldExit()) break;
@@ -91,7 +94,7 @@ public:
             int numSEQ = readShort();
             if (numLEN > MAX_LENGTH_BODY) {
                 // Too long! There must be some errors.
-                std::cout << "and discarded due to wrong length. (" << numLEN << "), seq: (" << numSEQ << ")" << std::endl;
+                logOut << "Header found and discarded due to wrong length. (" << numLEN << "), seq: (" << numSEQ << ")" << std::endl;
                 continue;
             }
             // read BODY
@@ -100,13 +103,13 @@ public:
             // read CRC
             unsigned int numCRC = readInt();
             if (frame.crc() != numCRC) {
-                std::cout << "and discarded due to failing CRC check. (sequence " << numSEQ << ")" << std::endl;
+                logOut << "Header found and discarded due to failing CRC check. (sequence " << numSEQ << ")" << std::endl;
                 continue;
             }
             protectOutput->enter();
             output->push(frame);
             protectOutput->exit();
-            std::cout << "and SUCCEED! (sequence " << numSEQ << ")" << std::endl;
+            logOut << "Header found and SUCCEED! (sequence " << numSEQ << ")" << std::endl;
         }
     }
 
