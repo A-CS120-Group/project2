@@ -28,8 +28,8 @@ public:
             assert(fIn.is_open());
             std::vector<bool> data;
             for (char c; fIn.get(c);) {
-                for (int i = 7; i >= 0; i--)
-                    data.push_back(static_cast<bool>((c >> i) & 1));
+                for (int i = 0; i < 8; ++i)
+                    data.push_back((bool) ((c >> i) & 1));
             }
             int dataLength = (int) data.size();
             std::vector<FrameType> frameList(1, {0, 0}); // the first one is dummy
@@ -115,9 +115,18 @@ public:
                 writer->send({0, -frame.seq});
                 fprintf(stderr, "ACK sent, seq = %d\n", -frame.seq);
             }
-            std::ofstream fOut("OUTPUT.bin", std::ios::binary | std::ios::out);
+            std::vector<bool> data;
             for (auto const &iter: frameList)
-                for (auto b: iter.second.frame) fOut << b;
+                for (auto b: iter.second.frame) data.push_back(b);
+            auto dataLength = data.size();
+            assert(dataLength % 8 == 0);
+            std::ofstream fOut("OUTPUT.bin", std::ios::binary | std::ios::out);
+            for (int i = 0; i < dataLength; i += 8) {
+                char c = 0;
+                for (int j = 0; j < 8; ++j)
+                    c = (char) (c | (data[i + j] << j));
+                fOut.put(c);
+            }
         };
         addAndMakeVisible(saveButton);
 
