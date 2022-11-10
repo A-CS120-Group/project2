@@ -15,17 +15,21 @@ public:
 
     Writer(const Writer &&) = delete;
 
-    explicit Writer(std::queue<float> *bufferOut, CriticalSection *lockOutput) : output(bufferOut), protectOutput(lockOutput) {}
+    explicit Writer(std::queue<float> *bufferOut, CriticalSection *lockOutput) : output(bufferOut),
+                                                                                 protectOutput(lockOutput) {}
 
     void writeBool(bool bit) {// TODO: what about 1.0f : -1.0f ?
         for (int i = 0; i < LENGTH_OF_ONE_BIT; ++i) { output->push(bit ? 1.0f : 0); }
     };
+
     void writeShort(short x) {
         for (int i = 0; i < 16; ++i) { writeBool((bool) (x >> i & 1)); }
     };
+
     void writeInt(int x) {
         for (int i = 0; i < 32; ++i) { writeBool((bool) (x >> i & 1)); }
     };
+
     void send(const FrameType &frame) {
         assert(output != nullptr);
         assert(protectOutput != nullptr);
@@ -41,10 +45,9 @@ public:
         for (auto b: frame.frame) { writeBool(b); }
         // CRC
         writeInt((int) frame.crc());
-        std::string logString;
-        std::ostringstream logOut(logString);
-        logOut << "Send frame " << frame.seq << std::endl;
-        std::cout << logString;
+//        std::ostringstream logOut;
+//        logOut << "    Send frame " << frame.seq << std::endl;
+//        std::cout << logOut.str();
         protectOutput->exit();
     }
 
