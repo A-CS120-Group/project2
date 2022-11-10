@@ -21,7 +21,7 @@ unsigned int crc(const std::vector<bool> &source) {
     for (int i = 0; i < stringLength; ++i) {
         unsigned q = 0;
         for (int j = 0; j < 8 && i * 8 + j < source.size(); ++j) q |= (int) source[i * 8 + j] << j;
-        sourceString[i] = q;
+        sourceString[i] = (unsigned char) q;
     }
     boost::crc_32_type crc;
     crc.process_bytes(sourceString, stringLength);

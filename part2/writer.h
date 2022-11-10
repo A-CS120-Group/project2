@@ -15,10 +15,8 @@ public:
 
     Writer(const Writer &&) = delete;
 
-    explicit Writer(std::queue<FrameType> *bufferIn, CriticalSection *lockInput,
-                    std::queue<float> *bufferOut, CriticalSection *lockOutput)
-            : Thread("Writer"), input(bufferIn), output(bufferOut), protectInput(lockInput),
-              protectOutput(lockOutput) {}
+    explicit Writer(std::queue<FrameType> *bufferIn, CriticalSection *lockInput, std::queue<float> *bufferOut, CriticalSection *lockOutput)
+        : Thread("Writer"), input(bufferIn), output(bufferOut), protectInput(lockInput), protectOutput(lockOutput) {}
 
     ~Writer() override { this->signalThreadShouldExit(); }
 
@@ -27,11 +25,14 @@ public:
         assert(output != nullptr);
         assert(protectInput != nullptr);
         assert(protectOutput != nullptr);
-        auto writeBool = [this](bool bit) {
+        auto writeBool = [this](bool bit) { // TODO: what about 1.0f : -1.0f ?
             for (int i = 0; i < LENGTH_OF_ONE_BIT; ++i) { this->output->push(bit ? 1.0f : 0); }
         };
-        auto writeInt = [writeBool](unsigned int x, int len) {
-            for (int i = 0; i < len; ++i) { writeBool((bool) (x >> i & 1)); }
+        auto writeShort = [writeBool](short x) {
+            for (int i = 0; i < 16; ++i) { writeBool((bool) (x >> i & 1)); }
+        };
+        auto writeInt = [writeBool](int x) {
+            for (int i = 0; i < 32; ++i) { writeBool((bool) (x >> i & 1)); }
         };
         while (!threadShouldExit()) {
             protectInput->enter();
@@ -47,13 +48,13 @@ public:
             // PREAMBLE
             for (auto b: preamble) { writeBool(b); }
             // LEN
-            writeInt((unsigned int) frame.size(), LENGTH_LEN);
+            writeShort((short) frame.size());
             // SEQ
-            writeInt((unsigned int) frame.seq, LENGTH_SEQ);
+            writeShort((short) frame.seq);
             // BODY
             for (auto b: frame.frame) { writeBool(b); }
             // CRC
-            writeInt(frame.crc(), LENGTH_CRC);
+            writeInt((int) frame.crc());
             std::cout << "Send frame " << frame.seq << std::endl;
             protectOutput->exit();
         }

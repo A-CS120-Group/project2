@@ -1,20 +1,20 @@
 #pragma once
 
+#include <algorithm>
 #include <boost/crc.hpp>
+#include <chrono>
 #include <iostream>
 #include <vector>
-#include <algorithm>
-#include <chrono>
 
-#define LENGTH_OF_ONE_BIT 4 // Must be a number in 1/2/3/4/5/6/8/10
+#define LENGTH_OF_ONE_BIT 4// Must be a number in 1/2/3/4/5/6/8/10
 #define MTU 512
 #define LENGTH_PREAMBLE 48
 #define LENGTH_SEQ 16
 #define LENGTH_LEN 16
 #define LENGTH_CRC 32
 #define MAX_LENGTH_BODY (MTU - LENGTH_PREAMBLE - LENGTH_SEQ - LENGTH_LEN - LENGTH_CRC)
-#define SLIDING_WINDOW_SIZE 8 // TODO: I don't know how to evaluate the best size
-#define SLIDING_WINDOW_TIMEOUT 0.3 // about 2*RTT
+#define SLIDING_WINDOW_SIZE 8     // TODO: I don't know how to evaluate the best size
+#define SLIDING_WINDOW_TIMEOUT 0.3// about 2*RTT
 
 /* Structure of a frame
  * PREAMBLE
@@ -24,14 +24,14 @@
  * CRC
  */
 
-constexpr bool preamble[LENGTH_PREAMBLE]
-        {1, 0, 1, 0, 1, 0, 1, 0,
-         1, 0, 1, 0, 1, 0, 1, 0,
-         1, 0, 1, 0, 1, 0, 1, 0,
-         1, 0, 1, 0, 1, 0, 1, 0,
-         1, 0, 1, 0, 1, 0, 1, 0,
-         1, 0, 1, 0, 1, 0, 1, 1,
-        };
+constexpr bool preamble[LENGTH_PREAMBLE]{
+        1, 0, 1, 0, 1, 0, 1, 0,
+        1, 0, 1, 0, 1, 0, 1, 0,
+        1, 0, 1, 0, 1, 0, 1, 0,
+        1, 0, 1, 0, 1, 0, 1, 0,
+        1, 0, 1, 0, 1, 0, 1, 0,
+        1, 0, 1, 0, 1, 0, 1, 1,
+};
 
 class FrameType {
 public:
@@ -57,11 +57,9 @@ public:
 
     MyTimer() : start(steady_clock::now()) {}
 
-    void restart() {
-        start = steady_clock::now();
-    }
+    void restart() { start = steady_clock::now(); }
 
-    [[nodiscard]]double duration() const {
+    [[nodiscard]] double duration() const {
         auto now = steady_clock::now();
         return std::chrono::duration<double>(now - start).count();
     }
