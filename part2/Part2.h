@@ -106,12 +106,14 @@ public:
                 fprintf(stderr, "frame received, seq = %d\n", frame.seq);
                 // End of transmission
                 if (frame.seq == 0) break;
-                // send ACK
-                writer->send({0, -frame.seq});
-                fprintf(stderr, "ACK sent, seq = %d\n", -frame.seq);
+                // Discard it because it's ACK sent by itself
+                if (frame.seq < 0) continue;
                 // Accept this frame and update LFR
                 frameList.insert(std::make_pair(frame.seq, frame));
                 while (frameList.find(LFR + 1) != frameList.end()) ++LFR;
+                // send ACK
+                writer->send({0, -frame.seq});
+                fprintf(stderr, "ACK sent, seq = %d\n", -frame.seq);
             }
             std::ofstream fOut("OUTPUT.bin", std::ios::binary | std::ios::out);
             for (auto const &iter: frameList)
