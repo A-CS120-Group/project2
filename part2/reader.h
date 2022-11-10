@@ -85,7 +85,6 @@ public:
             // wait for PREAMBLE
             waitForPreamble();
             if (threadShouldExit()) break;
-            std::cout << "Header found ";
             protectInput->enter();
             if (!input->empty()) input->pop();
             protectInput->exit();
