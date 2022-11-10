@@ -14,7 +14,7 @@
 #define LENGTH_CRC 32
 #define MAX_LENGTH_BODY (MTU - LENGTH_PREAMBLE - LENGTH_SEQ - LENGTH_LEN - LENGTH_CRC)
 #define SLIDING_WINDOW_SIZE 8     // TODO: I don't know how to evaluate the best size
-#define SLIDING_WINDOW_TIMEOUT 1  // TODO: about 2*RTT
+#define SLIDING_WINDOW_TIMEOUT 0.5
 
 /* Structure of a frame
  * PREAMBLE
