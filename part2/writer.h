@@ -19,7 +19,7 @@ public:
                                                                                  protectOutput(lockOutput) {}
 
     void writeBool(bool bit) {// TODO: what about 1.0f : -1.0f ?
-        for (int i = 0; i < LENGTH_OF_ONE_BIT; ++i) { output->push(bit ? 1.0f : 0); }
+        for (int i = 0; i < LENGTH_OF_ONE_BIT; ++i) { output->push(bit ? 1.0f : -1.0f); }
     };
 
     void writeShort(short x) {
