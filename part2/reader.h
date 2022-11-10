@@ -18,7 +18,9 @@ public:
     explicit Reader(std::queue<float> *bufferIn, CriticalSection *lockInput, std::queue<FrameType> *bufferOut,
                     CriticalSection *lockOutput)
             : Thread("Reader"), input(bufferIn), output(bufferOut), protectInput(lockInput),
-              protectOutput(lockOutput) {}
+              protectOutput(lockOutput) {
+        std::cout << "Reader Thread Start" << std::endl;
+    }
 
     ~Reader() override { this->signalThreadShouldExit(); }
 
@@ -79,10 +81,7 @@ public:
                 if (isPreamble) return;
             }
         };
-        std::ostringstream logOut;
         while (!threadShouldExit()) {
-            std::cout << logOut.str();
-            logOut.clear();
             // wait for PREAMBLE
             waitForPreamble();
             if (threadShouldExit()) break;
@@ -94,8 +93,7 @@ public:
             int numSEQ = readShort();
             if (numLEN > MAX_LENGTH_BODY) {
                 // Too long! There must be some errors.
-                logOut << "    Header found and discarded due to wrong length. (" << numLEN << "), seq: (" << numSEQ
-                       << ")" << std::endl;
+                fprintf(stderr, "    Discarded due to wrong length. len = %d, seq = %d\n", numLEN, numSEQ);
                 continue;
             }
             // read BODY
@@ -104,14 +102,13 @@ public:
             // read CRC
             unsigned int numCRC = readInt();
             if (frame.crc() != numCRC) {
-                logOut << "    Header found and discarded due to failing CRC check. (sequence " << numSEQ << ")"
-                       << std::endl;
+                fprintf(stderr, "    Discarded due to failing CRC check. len = %d, seq = %d\n", numLEN, numSEQ);
                 continue;
             }
             protectOutput->enter();
             output->push(frame);
             protectOutput->exit();
-            logOut << "    Header found and SUCCEED! (sequence " << numSEQ << ")" << std::endl;
+            fprintf(stderr, "    SUCCEED! len = %d, seq = %d\n", numLEN, numSEQ);
         }
     }
 

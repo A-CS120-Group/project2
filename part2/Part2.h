@@ -51,8 +51,8 @@ public:
                     int seq = -ACKFrame.seq;
                     if (LAR < seq && seq <= LFS) {
                         info[LFS - seq].receiveACK = true;
-                        std::cout << "ACK " << seq << " detected after waiting for " << info[LFS - seq].timer.duration()
-                                  << std::endl;
+                        fprintf(stderr, "ACK %d detected after waiting for %lf\n", seq,
+                                info[LFS - seq].timer.duration());
                     }
                 }
                 binaryInputLock.exit();
@@ -65,13 +65,13 @@ public:
                 for (int seq = LFS; seq > LAR; --seq) {
                     if (info[LFS - seq].timer.duration() > SLIDING_WINDOW_TIMEOUT) {
                         if (info[LFS - seq].resendTimes == 0) {
-                            std::cerr << "Link error detected! seq = " << seq << std::endl;
+                            fprintf(stderr, "Link error detected! seq = %d\n", seq);
                             return;
                         }
                         info[LFS - seq].resendTimes--;
                         info[LFS - seq].timer.restart();
                         writer->send(frameList[seq]);
-                        std::cerr << "Frame resent, seq = " << seq << std::endl;
+                        fprintf(stderr, "Frame resent, seq = %d\n", seq);
                     }
                 }
                 // try to update LFS and send a frame
@@ -79,7 +79,7 @@ public:
                     ++LFS;
                     info.insert(info.begin(), FrameWaitingInfo());
                     writer->send(frameList[LFS]);
-                    std::cout << "Frame sent, seq = " << LFS << std::endl;
+                    fprintf(stderr, "Frame sent, seq = %d\n", LFS);
                 }
             }
             // all ACKs detected, tell the receiver client to terminate
@@ -103,12 +103,12 @@ public:
                 FrameType frame = std::move(binaryInput.front());
                 binaryInput.pop();
                 binaryInputLock.exit();
-                std::cout << "frame received, seq = " << frame.seq << std::endl;
+                fprintf(stderr, "frame received, seq = %d\n", frame.seq);
                 // End of transmission
                 if (frame.seq == 0) break;
                 // send ACK
                 writer->send({0, -frame.seq});
-                std::cout << "ACK sent, seq = " << -frame.seq << std::endl;
+                fprintf(stderr, "ACK sent, seq = %d\n", -frame.seq);
                 // Accept this frame and update LFR
                 frameList.insert(std::make_pair(frame.seq, frame));
                 while (frameList.find(LFR + 1) != frameList.end()) ++LFR;
