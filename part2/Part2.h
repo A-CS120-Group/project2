@@ -6,6 +6,7 @@
 #include <queue>
 #include <thread>
 #include <vector>
+#include <map>
 
 #pragma once
 
@@ -30,49 +31,66 @@ public:
                 for (int i = 7; i >= 0; i--)
                     data.push_back(static_cast<bool>((c >> i) & 1));
             }
-            short seq = 0;
-            // Read file is very fast, so we reduce the overhead of critical sections. But I need ACK~
-            for (size_t i = 0; i < data.size(); i += MAX_LENGTH_BODY) {
-                size_t jEnd = i + MAX_LENGTH_BODY;
-                if (jEnd < data.size()) {
-                    ++seq;
-                } else {
-                    seq = 0; // Last frame
-                    jEnd = data.size();
-                }
-                FrameType frame(jEnd - i, seq);
-                for (size_t j = i; j < jEnd; ++j)
-                    frame.frame[j - i] = data[j];
-                bool receiveACK = false;
-                for (int resendTimes = 3; resendTimes >= 0 && !receiveACK; --resendTimes) {// Resend at most 3 times
-                    binaryOutputLock.enter();
-                    binaryOutput.push(frame);
-                    binaryOutputLock.exit();
-                    std::cout << "Frame sent, seq = " << seq << std::endl;
-                    // Receive ACK
-                    MyTimer timer;
-                    const double timeout = 1.0; // TODO: test RTT and set a reasonable timeout
-                    while (timer.duration() < timeout && !receiveACK) {
-                        binaryInputLock.enter();
-                        if (!binaryInput.empty()) {
-                            FrameType ACKFrame = std::move(binaryInput.front());
-                            binaryInput.pop();
-                            if (seq == -ACKFrame.seq) {
-                                receiveACK = true;
-                                std::cout << "ACK detected after waiting for " << timer.duration() << std::endl;
-                            } else
-                                std::cerr << "mismatched ACK seq = " << ACKFrame.seq << std::endl;
-                        }
-                        binaryInputLock.exit();
+            int dataLength = (int) data.size();
+            std::vector<FrameType> frameList(1, {0, 0}); // the first one is dummy
+            for (int i = 0; i * MAX_LENGTH_BODY < dataLength; ++i) {
+                int len = std::min(MAX_LENGTH_BODY, dataLength - i * MAX_LENGTH_BODY);
+                FrameType frame(len, i + 1);
+                for (int j = 0; j < len; ++j)
+                    frame.frame[j] = data[i * MAX_LENGTH_BODY + j];
+                frameList.emplace_back(std::move(frame));
+            }
+            int LAR = 0, LFS = 0;
+            std::vector<FrameWaitingInfo> info;
+            while (LAR < frameList.rbegin()->seq) {
+                // try to receive ACK
+                binaryInputLock.enter();
+                if (!binaryInput.empty()) {
+                    FrameType ACKFrame = std::move(binaryInput.front());
+                    binaryInput.pop();
+                    int seq = -ACKFrame.seq;
+                    if (LAR < seq && seq <= LFS) {
+                        info[LFS - seq].receiveACK = true;
+                        std::cout << "ACK " << seq << " detected after waiting for " << info[LFS - seq].timer.duration()
+                                  << std::endl;
                     }
                 }
-                if (receiveACK) {
-                    std::cout << "ACK received, seq = " << seq << std::endl;
-                    break;
-                } else {
-                    std::cerr << "Link Error!, seq = " << seq << std::endl;
+                binaryInputLock.exit();
+                // update LAR
+                while (LAR < LFS && info.rbegin()->receiveACK) {
+                    ++LAR;
+                    info.pop_back();
+                }
+                // resend timeout frames
+                for (int seq = LFS; seq > LAR; --seq) {
+                    if (info[LFS - seq].timer.duration() > SLIDING_WINDOW_TIMEOUT) {
+                        if (info[LFS - seq].resendTimes == 0) {
+                            std::cerr << "Link error detected! seq = " << seq << std::endl;
+                            return;
+                        }
+                        info[LFS - seq].resendTimes--;
+                        info[LFS - seq].timer.restart();
+                        binaryOutputLock.enter();
+                        binaryOutput.push(frameList[seq]);
+                        binaryOutputLock.exit();
+                        std::cerr << "Frame resent, seq = " << seq << std::endl;
+                    }
+                }
+                // try to update LFS and send a frame
+                if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < frameList.rbegin()->seq) {
+                    ++LFS;
+                    info.insert(info.begin(), FrameWaitingInfo());
+                    binaryOutputLock.enter();
+                    binaryOutput.push(frameList[LFS]);
+                    binaryOutputLock.exit();
+                    std::cout << "Frame sent, seq = " << LFS << std::endl;
                 }
             }
+            // all ACKs detected, tell the receiver client to terminate
+            binaryOutputLock.enter();
+            binaryOutput.push(frameList[0]);
+            binaryOutput.push(frameList[0]);
+            binaryOutputLock.exit();
         };
         addAndMakeVisible(sendButton);
 
@@ -80,26 +98,34 @@ public:
         saveButton.setSize(80, 40);
         saveButton.setCentrePosition(450, 140);
         saveButton.onClick = [this] {
-            std::ofstream fout("OUTPUT.bin", std::ios::binary | std::ios::out);
+            int LFR = 0;
+            std::map<int, FrameType> frameList;
             while (true) {
                 binaryInputLock.enter();
-                if (!binaryInput.empty()) {
-                    FrameType frame = std::move(binaryInput.front());
-                    binaryInput.pop();
-                    for (auto b: frame.frame) fout << b;
-                    std::cout << "frame received, seq = " << frame.seq << std::endl;
-                    // Send ACK
-                    frame.seq *= -1;
-                    frame.frame.clear();
-                    binaryOutputLock.enter();
-                    binaryOutput.push(frame);
-                    binaryOutputLock.exit();
-                    std::cout << "ACK sent, seq = " << frame.seq << std::endl;
-                    // End of transmission
-                    if (frame.seq == 0) break;
+                if (binaryInput.empty()) {
+                    binaryInputLock.exit();
+                    continue;
                 }
+                FrameType frame = std::move(binaryInput.front());
+                binaryInput.pop();
                 binaryInputLock.exit();
+                std::cout << "frame received, seq = " << frame.seq << std::endl;
+                // End of transmission
+                if (frame.seq == 0) break;
+                if (frameList.find(frame.seq) == frameList.end()) {
+                    // Accept this frame and update LFR
+                    frameList.insert(std::make_pair(frame.seq, frame));
+                    while (frameList.find(LFR + 1) != frameList.end()) ++LFR;
+                }
+                // send accumulative ACK
+                binaryOutputLock.enter();
+                binaryOutput.push({0, -LFR});
+                binaryOutputLock.exit();
+                std::cout << "ACK sent, LFR = " << LFR << std::endl;
             }
+            std::ofstream fout("OUTPUT.bin", std::ios::binary | std::ios::out);
+            for (auto const &iter: frameList)
+                for (auto b: iter.second.frame) fout << b;
         };
         addAndMakeVisible(saveButton);
 

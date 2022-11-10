@@ -35,26 +35,27 @@ public:
         };
         while (!threadShouldExit()) {
             protectInput->enter();
-            if (!input->empty()) {
-                FrameType frame = std::move(input->front());
-                input->pop();
+            if (input->empty()) {
                 protectInput->exit();
+                continue;
+            }
+            FrameType frame = std::move(input->front());
+            input->pop();
+            protectInput->exit();
 
-                protectOutput->enter();
-                // PREAMBLE
-                for (auto b: preamble) { writeBool(b); }
-                // LEN
-                writeInt((unsigned int) frame.size(), LENGTH_LEN);
-                // SEQ
-                writeInt((unsigned int) frame.seq, LENGTH_SEQ);
-                // BODY
-                for (auto b: frame.frame) { writeBool(b); }
-                // CRC
-                writeInt(frame.crc(), LENGTH_CRC);
-                std::cout << "Send frame " << frame.seq << std::endl;
-                protectOutput->exit();
-            } else
-                protectInput->exit();
+            protectOutput->enter();
+            // PREAMBLE
+            for (auto b: preamble) { writeBool(b); }
+            // LEN
+            writeInt((unsigned int) frame.size(), LENGTH_LEN);
+            // SEQ
+            writeInt((unsigned int) frame.seq, LENGTH_SEQ);
+            // BODY
+            for (auto b: frame.frame) { writeBool(b); }
+            // CRC
+            writeInt(frame.crc(), LENGTH_CRC);
+            std::cout << "Send frame " << frame.seq << std::endl;
+            protectOutput->exit();
         }
     }
 

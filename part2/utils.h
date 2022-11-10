@@ -6,18 +6,20 @@
 #include <algorithm>
 #include <chrono>
 
-#define LENGTH_OF_ONE_BIT 4// Must be a number in 1/2/3/4/5/6/8/10
+#define LENGTH_OF_ONE_BIT 4 // Must be a number in 1/2/3/4/5/6/8/10
 #define MTU 512
 #define LENGTH_PREAMBLE 48
 #define LENGTH_SEQ 16
 #define LENGTH_LEN 16
 #define LENGTH_CRC 32
 #define MAX_LENGTH_BODY (MTU - LENGTH_PREAMBLE - LENGTH_SEQ - LENGTH_LEN - LENGTH_CRC)
+#define SLIDING_WINDOW_SIZE 8 // TODO: I don't know how to evaluate the best size
+#define SLIDING_WINDOW_TIMEOUT 0.3 // about 2*RTT
 
 /* Structure of a frame
  * PREAMBLE
  * LEN      the length of BODY;
- * SEQ      +x: frame counter , -x: ACK counter, 0: end frame or ACK;
+ * SEQ      +x: frame counter , -x: ACK counter, 0: end signal;
  * BODY
  * CRC
  */
@@ -35,16 +37,16 @@ class FrameType {
 public:
     FrameType() = delete;
 
-    FrameType(size_t sizeOfFrame, short numSEQ);
+    FrameType(size_t sizeOfFrame, int numSEQ);
 
-    FrameType(std::vector<bool> &value, short numSEQ) : frame(value), seq(numSEQ) {}
+    FrameType(std::vector<bool> &value, int numSEQ) : frame(value), seq(numSEQ) {}
 
     [[nodiscard]] unsigned int crc() const;
 
     [[nodiscard]] size_t size() const;
 
     std::vector<bool> frame;
-    short seq;
+    int seq;
 };
 
 using std::chrono::steady_clock;
@@ -63,6 +65,12 @@ public:
         auto now = steady_clock::now();
         return std::chrono::duration<double>(now - start).count();
     }
+};
+
+struct FrameWaitingInfo {
+    bool receiveACK = false;
+    MyTimer timer;
+    int resendTimes = 3;
 };
 
 unsigned int crc(const std::vector<bool> &source);

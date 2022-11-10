@@ -1,6 +1,6 @@
 #include "utils.h"
 
-FrameType::FrameType(size_t sizeOfFrame, short numSEQ) : seq(numSEQ) {
+FrameType::FrameType(size_t sizeOfFrame, int numSEQ) : seq(numSEQ) {
     frame.resize(sizeOfFrame);
 }
 

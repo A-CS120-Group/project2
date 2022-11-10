@@ -35,17 +35,18 @@ public:
             auto avg = 0.0f;
             while (!threadShouldExit()) {
                 protectInput->enter();
-                if (input->empty()) protectInput->exit();
-                else {
-                    float nextValue = input->front();
-                    input->pop();
+                if (input->empty()) {
                     protectInput->exit();
-                    // Divide here - in case we have a complex float-to-bool method
-                    avg += nextValue / LENGTH_OF_ONE_BIT;
-                    ++temp;
-                    if (temp == LENGTH_OF_ONE_BIT) {
-                        return (avg > 0.0f);
-                    }
+                    continue;
+                }
+                float nextValue = input->front();
+                input->pop();
+                protectInput->exit();
+                // Divide here - in case we have a complex float-to-bool method
+                avg += nextValue / LENGTH_OF_ONE_BIT;
+                ++temp;
+                if (temp == LENGTH_OF_ONE_BIT) {
+                    return (avg > 0.0f);
                 }
             }
             return false;
@@ -55,35 +56,38 @@ public:
             for (int i = 0; i < len; ++i) { ret |= static_cast<unsigned int>(readBool() << i); }
             return ret;
         };
-        auto detectPreamble = [this](std::deque<float> &sync) { // sync[i] = Σ signal[i : i + LENGTH_OF_ONE_BIT]
-            protectInput->enter();
-            if (input->empty()) {
+        auto waitForPreamble = [this]() { // sync[i] = Σ signal[i : i + LENGTH_OF_ONE_BIT]
+            auto sync = std::deque<float>(LENGTH_PREAMBLE * LENGTH_OF_ONE_BIT, 0);
+            while (!threadShouldExit()) {
+                protectInput->enter();
+                if (input->empty()) {
+                    protectInput->exit();
+                    continue;
+                }
+                float nextValue = input->front();
+                input->pop();
                 protectInput->exit();
-                return false;
+                sync.pop_front();
+                sync.push_back(nextValue);
+                for (int i = 1; i < LENGTH_OF_ONE_BIT; ++i)
+                    *(sync.rbegin() + i) += nextValue;
+                bool isPreamble = true;
+                for (int i = 0; i < LENGTH_PREAMBLE; ++i)
+                    if (preamble[i] != (sync[i * LENGTH_OF_ONE_BIT] > 0)) {
+                        isPreamble = false;
+                        break;
+                    }
+                if (isPreamble) return;
             }
-            float nextValue = input->front();
-            input->pop();
-            protectInput->exit();
-            sync.pop_front();
-            sync.push_back(nextValue);
-            for (int i = 1; i < LENGTH_OF_ONE_BIT; ++i)
-                *(sync.rbegin() + i) += nextValue;
-            for (int i = 0; i < LENGTH_PREAMBLE; ++i)
-                if (preamble[i] != (sync[i * LENGTH_OF_ONE_BIT] > 0)) return false;
-            return true;
         };
         while (!threadShouldExit()) {
             // wait for PREAMBLE
-            auto sync = std::deque<float>(LENGTH_PREAMBLE * LENGTH_OF_ONE_BIT, 0);
-            while (!threadShouldExit()) {
-                if (detectPreamble(sync)) {
-                    std::cout << "Header found ";
-                    protectInput->enter();
-                    if (!input->empty()) input->pop();
-                    protectInput->exit();
-                    break;
-                }
-            }
+            waitForPreamble();
+            if (threadShouldExit()) break;
+            std::cout << "Header found ";
+            protectInput->enter();
+            if (!input->empty()) input->pop();
+            protectInput->exit();
             // read LEN, SEQ
             unsigned int numLEN = readInt(LENGTH_LEN);
             unsigned int numSEQ = readInt(LENGTH_SEQ);
@@ -94,7 +98,7 @@ public:
                 continue;
             }
             // read BODY
-            FrameType frame(numLEN, (short) numSEQ);
+            FrameType frame(numLEN, (int) numSEQ);
             for (auto i = 0u; i < numLEN; ++i)
                 frame.frame[i] = readBool();
             // read CRC
