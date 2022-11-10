@@ -63,16 +63,16 @@ public:
                 }
                 // resend timeout frames
                 for (int seq = LFS; seq > LAR; --seq) {
-                    if (info[LFS - seq].timer.duration() > SLIDING_WINDOW_TIMEOUT) {
-                        if (info[LFS - seq].resendTimes == 0) {
-                            fprintf(stderr, "Link error detected! seq = %d\n", seq);
-                            return;
-                        }
-                        info[LFS - seq].resendTimes--;
-                        info[LFS - seq].timer.restart();
-                        writer->send(frameList[seq]);
-                        fprintf(stderr, "Frame resent, seq = %d\n", seq);
+                    if (info[LFS - seq].receiveACK || info[LFS - seq].timer.duration() < SLIDING_WINDOW_TIMEOUT)
+                        continue;
+                    if (info[LFS - seq].resendTimes == 0) {
+                        fprintf(stderr, "Link error detected! seq = %d\n", seq);
+                        return;
                     }
+                    writer->send(frameList[seq]);
+                    info[LFS - seq].resendTimes--;
+                    info[LFS - seq].timer.restart();
+                    fprintf(stderr, "Frame resent, seq = %d\n", seq);
                 }
                 // try to update LFS and send a frame
                 if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < frameList.rbegin()->seq) {
