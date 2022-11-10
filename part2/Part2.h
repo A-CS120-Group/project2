@@ -24,10 +24,10 @@ public:
         sendButton.setSize(80, 40);
         sendButton.setCentrePosition(150, 140);
         sendButton.onClick = [this] {
-            std::ifstream fin("INPUT.bin", std::ios::binary | std::ios::in);
-            assert(fin.is_open());
+            std::ifstream fIn("INPUT.bin", std::ios::binary | std::ios::in);
+            assert(fIn.is_open());
             std::vector<bool> data;
-            for (char c; fin.get(c);) {
+            for (char c; fIn.get(c);) {
                 for (int i = 7; i >= 0; i--)
                     data.push_back(static_cast<bool>((c >> i) & 1));
             }
@@ -70,9 +70,7 @@ public:
                         }
                         info[LFS - seq].resendTimes--;
                         info[LFS - seq].timer.restart();
-                        binaryOutputLock.enter();
-                        binaryOutput.push(frameList[seq]);
-                        binaryOutputLock.exit();
+                        writer->send(frameList[seq]);
                         std::cerr << "Frame resent, seq = " << seq << std::endl;
                     }
                 }
@@ -80,17 +78,13 @@ public:
                 if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < frameList.rbegin()->seq) {
                     ++LFS;
                     info.insert(info.begin(), FrameWaitingInfo());
-                    binaryOutputLock.enter();
-                    binaryOutput.push(frameList[LFS]);
-                    binaryOutputLock.exit();
+                    writer->send(frameList[LFS]);
                     std::cout << "Frame sent, seq = " << LFS << std::endl;
                 }
             }
             // all ACKs detected, tell the receiver client to terminate
-            binaryOutputLock.enter();
-            binaryOutput.push(frameList[0]);
-            binaryOutput.push(frameList[0]);
-            binaryOutputLock.exit();
+            writer->send(frameList[0]);
+            writer->send(frameList[0]);
         };
         addAndMakeVisible(sendButton);
 
@@ -112,20 +106,16 @@ public:
                 std::cout << "frame received, seq = " << frame.seq << std::endl;
                 // End of transmission
                 if (frame.seq == 0) break;
-                if (frameList.find(frame.seq) == frameList.end()) {
-                    // Accept this frame and update LFR
-                    frameList.insert(std::make_pair(frame.seq, frame));
-                    while (frameList.find(LFR + 1) != frameList.end()) ++LFR;
-                }
-                // send accumulative ACK
-                binaryOutputLock.enter();
-                binaryOutput.push({0, -LFR});
-                binaryOutputLock.exit();
-                std::cout << "ACK sent, LFR = " << LFR << std::endl;
+                // send ACK
+                writer->send({0, -frame.seq});
+                std::cout << "ACK sent, seq = " << -frame.seq << std::endl;
+                // Accept this frame and update LFR
+                frameList.insert(std::make_pair(frame.seq, frame));
+                while (frameList.find(LFR + 1) != frameList.end()) ++LFR;
             }
-            std::ofstream fout("OUTPUT.bin", std::ios::binary | std::ios::out);
+            std::ofstream fOut("OUTPUT.bin", std::ios::binary | std::ios::out);
             for (auto const &iter: frameList)
-                for (auto b: iter.second.frame) fout << b;
+                for (auto b: iter.second.frame) fOut << b;
         };
         addAndMakeVisible(saveButton);
 
@@ -139,8 +129,7 @@ private:
     void initThreads() {
         reader = new Reader(&directInput, &directInputLock, &binaryInput, &binaryInputLock);
         reader->startThread();
-        writer = new Writer(&binaryOutput, &binaryOutputLock, &directOutput, &directOutputLock);
-        writer->startThread();
+        writer = new Writer(&directOutput, &directOutputLock);
     }
 
     void prepareToPlay([[maybe_unused]] int samplesPerBlockExpected, [[maybe_unused]] double sampleRate) override {
@@ -200,8 +189,6 @@ private:
     Writer *writer{nullptr};
     std::queue<float> directOutput;
     CriticalSection directOutputLock;
-    std::queue<FrameType> binaryOutput;
-    CriticalSection binaryOutputLock;
 
     // GUI related
     juce::Label titleLabel;
