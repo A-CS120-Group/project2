@@ -24,6 +24,19 @@ public:
         sendButton.setSize(80, 40);
         sendButton.setCentrePosition(150, 140);
         sendButton.onClick = [this] {
+//            writer->send(FrameType(0, 0));
+//            MyTimer testRingTime;
+//            while (true) {
+//                binaryInputLock.enter();
+//                if (binaryInput.empty()) {
+//                    binaryInputLock.exit();
+//                    continue;
+//                }
+//                fprintf(stderr, "%lf\n", testRingTime.duration());
+//                binaryInput.pop();
+//                binaryInputLock.exit();
+//                break;
+//            }
             std::ifstream fIn("INPUT.bin", std::ios::binary | std::ios::in);
             assert(fIn.is_open());
             std::vector<bool> data;

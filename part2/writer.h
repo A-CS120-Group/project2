@@ -15,8 +15,8 @@ public:
 
     Writer(const Writer &&) = delete;
 
-    explicit Writer(std::queue<float> *bufferOut, CriticalSection *lockOutput) : output(bufferOut),
-                                                                                 protectOutput(lockOutput) {}
+    explicit Writer(std::queue<float> *bufferOut, CriticalSection *lockOutput) :
+            output(bufferOut), protectOutput(lockOutput) {}
 
     void writeBool(bool bit) {
         for (int i = 0; i < LENGTH_OF_ONE_BIT; ++i) { output->push(bit ? 1.0f : 0.0f); }
@@ -34,6 +34,14 @@ public:
         assert(output != nullptr);
         assert(protectOutput != nullptr);
 
+        while (true) {
+            protectOutput->enter();
+            if (output->empty()) {
+                protectOutput->exit();
+                break;
+            }
+            protectOutput->exit();
+        }
         protectOutput->enter();
         // PREAMBLE
         for (auto b: preamble) { writeBool(b); }
