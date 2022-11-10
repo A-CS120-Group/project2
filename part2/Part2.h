@@ -77,8 +77,8 @@ public:
                 // try to update LFS and send a frame
                 if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < frameList.rbegin()->seq) {
                     ++LFS;
-                    info.insert(info.begin(), FrameWaitingInfo());
                     writer->send(frameList[LFS]);
+                    info.insert(info.begin(), FrameWaitingInfo());
                     fprintf(stderr, "Frame sent, seq = %d\n", LFS);
                 }
             }
