@@ -37,6 +37,7 @@ public:
 //                binaryInputLock.exit();
 //                break;
 //            }
+            MyTimer testTotalTime;
             std::ifstream fIn("INPUT.bin", std::ios::binary | std::ios::in);
             assert(fIn.is_open());
             std::vector<bool> data;
@@ -64,7 +65,7 @@ public:
                     int seq = -ACKFrame.seq;
                     if (LAR < seq && seq <= LFS) {
                         info[LFS - seq].receiveACK = true;
-                        fprintf(stderr, "ACK %d detected after waiting for %lf\n", seq,
+                        fprintf(stderr, "ACK %d detected after waiting for %lfs\n", seq,
                                 info[LFS - seq].timer.duration() - info[LFS - seq].waitingTime);
                     }
                 }
@@ -99,6 +100,7 @@ public:
             // all ACKs detected, tell the receiver client to terminate
             writer->send(frameList[0]);
             writer->send(frameList[0]);
+            fprintf(stderr, "Transmission finished in %lfs\n", testTotalTime.duration());
         };
         addAndMakeVisible(sendButton);
 
@@ -184,7 +186,13 @@ private:
                 // Write if PHY layer wants
                 float *writePosition = buffer->getWritePointer(channel);
                 directOutputLock.enter();
-                if (directOutput.empty()) fprintf(stderr, "        Channel Free!!!!\n");
+                static int channelEmptyPeriods = 0;
+                if (directOutput.empty()) {
+                    ++channelEmptyPeriods;
+                } else {
+                    fprintf(stderr, "        Channel Empty for %d periods!!!!\n", channelEmptyPeriods);
+                    channelEmptyPeriods = 0;
+                }
                 for (int i = 0; i < bufferSize; ++i) {
                     if (directOutput.empty()) {
                         writePosition[i] = 0.45f;

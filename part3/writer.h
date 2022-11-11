@@ -15,8 +15,8 @@ public:
 
     Writer(const Writer &&) = delete;
 
-    explicit Writer(std::queue<float> *bufferOut, CriticalSection *lockOutput) :
-            output(bufferOut), protectOutput(lockOutput) {}
+    explicit Writer(std::queue<float> *bufferOut, CriticalSection *lockOutput, Atomic<bool> *quietPtr) :
+            output(bufferOut), protectOutput(lockOutput), quiet(quietPtr) {}
 
     void writeBool(bool bit) {
         for (int i = 0; i < LENGTH_OF_ONE_BIT; ++i) { output->push(bit ? 1.0f : 0.0f); }
@@ -32,6 +32,7 @@ public:
 
     // Send a frame, return estimated waiting time
     double send(const FrameType &frame) {
+        protectOutput->enter();
         // PREAMBLE
         for (auto b: preamble) { writeBool(b); }
         // LEN
@@ -50,6 +51,7 @@ public:
 private:
     std::queue<float> *output{nullptr};
     CriticalSection *protectOutput;
+    Atomic<bool> *quiet;
 };
 
 #endif//WRITER_H

@@ -154,7 +154,7 @@ private:
     void initThreads() {
         reader = new Reader(&directInput, &directInputLock, &binaryInput, &binaryInputLock);
         reader->startThread();
-        writer = new Writer(&directOutput, &directOutputLock);
+        writer = new Writer(&directOutput, &directOutputLock, &quiet);
     }
 
     void prepareToPlay([[maybe_unused]] int samplesPerBlockExpected, [[maybe_unused]] double sampleRate) override {
@@ -178,7 +178,14 @@ private:
                 // Read in PHY layer
                 const float *data = buffer->getReadPointer(channel);
                 directInputLock.enter();
-                for (auto i = 0; i < bufferSize; ++i) { directInput.push(data[i]); }
+                for (int i = 0; i < bufferSize; ++i) { directInput.push(data[i]); }
+                bool nowQuiet = true;
+                for (int i = bufferSize - LENGTH_PREAMBLE; i < bufferSize; ++i)
+                    if (fabs(data[i]) > 0.01f) {
+                        nowQuiet = false;
+                        break;
+                    }
+                quiet.set(nowQuiet);
                 directInputLock.exit();
                 buffer->clear();
                 // Write if PHY layer wants
@@ -215,6 +222,7 @@ private:
     Writer *writer{nullptr};
     std::queue<float> directOutput;
     CriticalSection directOutputLock;
+    Atomic<bool> quiet = false;
 
     // GUI related
     juce::Label titleLabel;

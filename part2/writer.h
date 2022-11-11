@@ -32,6 +32,7 @@ public:
 
     // Send a frame, return estimated waiting time
     double send(const FrameType &frame) {
+        protectOutput->enter();
         // PREAMBLE
         for (auto b: preamble) { writeBool(b); }
         // LEN

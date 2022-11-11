@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.23)
 
-set(CURRENT_TARGET "Project2_Part3")
+set(CURRENT_TARGET "Project2_Part2")
 
 project(${CURRENT_TARGET} VERSION 0.0.1)
 
