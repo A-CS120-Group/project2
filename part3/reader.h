@@ -7,6 +7,8 @@
 #include <ostream>
 #include <queue>
 
+#define PREAMBLE_THRESHOLD 0.5f
+
 class Reader : public Thread {
 public:
     Reader() = delete;
@@ -74,7 +76,8 @@ public:
                 for (int i = 1; i < LENGTH_OF_ONE_BIT; ++i) *(sync.rbegin() + i) += nextValue;
                 bool isPreamble = true;
                 for (int i = 0; i < LENGTH_PREAMBLE; ++i)
-                    if (preamble[i] != (sync[i * LENGTH_OF_ONE_BIT] > 0)) {
+                    if ((preamble[i] && sync[i * LENGTH_OF_ONE_BIT] < PREAMBLE_THRESHOLD) ||
+                        (!preamble[i] && sync[i * LENGTH_OF_ONE_BIT] > -PREAMBLE_THRESHOLD)) {
                         isPreamble = false;
                         break;
                     }
@@ -85,9 +88,6 @@ public:
             // wait for PREAMBLE
             waitForPreamble();
             if (threadShouldExit()) break;
-            protectInput->enter();
-            if (!input->empty()) input->pop();
-            protectInput->exit();
             // read LEN, SEQ
             int numLEN = (unsigned short) readShort();
             int numSEQ = readShort();

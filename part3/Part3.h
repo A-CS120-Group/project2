@@ -184,6 +184,8 @@ private:
                     if (fabs(data[i]) > 0.01f) {
                         nowQuiet = false;
                         fprintf(stderr, "        Noisy Now!!!!\n");
+                        for (int j = 0; j < bufferSize; ++j)fprintf(stderr, "%f ", data[j]);
+                        fprintf(stderr, "\n");
                         break;
                     }
                 quiet.set(nowQuiet);

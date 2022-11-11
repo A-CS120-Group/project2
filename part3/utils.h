@@ -13,8 +13,8 @@
 #define LENGTH_LEN 16
 #define LENGTH_CRC 32
 #define MAX_LENGTH_BODY (MTU - LENGTH_PREAMBLE - LENGTH_SEQ - LENGTH_LEN - LENGTH_CRC)
-#define SLIDING_WINDOW_SIZE 8
-#define SLIDING_WINDOW_TIMEOUT 0.5
+#define SLIDING_WINDOW_SIZE 1
+#define SLIDING_WINDOW_TIMEOUT 1.0
 
 /* Structure of a frame
  * PREAMBLE
@@ -68,7 +68,7 @@ public:
 struct FrameWaitingInfo {
     bool receiveACK = false;
     MyTimer timer;
-    int resendTimes = 30;
+    int resendTimes = 3;
 };
 
 unsigned int crc(const std::vector<bool> &source);
