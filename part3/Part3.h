@@ -180,7 +180,7 @@ private:
                 directInputLock.enter();
                 for (int i = 0; i < bufferSize; ++i) { directInput.push(data[i]); }
                 bool nowQuiet = true;
-                for (int i = bufferSize - LENGTH_PREAMBLE; i < bufferSize; ++i)
+                for (int i = 0; i < bufferSize; ++i)
                     if (fabs(data[i]) > 0.01f) {
                         nowQuiet = false;
                         fprintf(stderr, "        Noisy Now!!!!\n");
