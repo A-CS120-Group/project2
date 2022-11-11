@@ -30,19 +30,8 @@ public:
         for (int i = 0; i < 32; ++i) { writeBool((bool) (x >> i & 1)); }
     };
 
-    void send(const FrameType &frame) {
-        assert(output != nullptr);
-        assert(protectOutput != nullptr);
-
-        while (true) {
-            protectOutput->enter();
-            if (output->empty()) {
-                protectOutput->exit();
-                break;
-            }
-            protectOutput->exit();
-        }
-        protectOutput->enter();
+    // Send a frame, return estimated waiting time
+    double send(const FrameType &frame) {
         // PREAMBLE
         for (auto b: preamble) { writeBool(b); }
         // LEN
@@ -53,10 +42,9 @@ public:
         for (auto b: frame.frame) { writeBool(b); }
         // CRC
         writeInt((int) frame.crc());
-//        std::ostringstream logOut;
-//        logOut << "    Send frame " << frame.seq << std::endl;
-//        std::cout << logOut.str();
+        double waitingTime = (double) output->size() / 48000.0;
         protectOutput->exit();
+        return waitingTime;
     }
 
 private:

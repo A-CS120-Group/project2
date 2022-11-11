@@ -68,6 +68,7 @@ public:
 struct FrameWaitingInfo {
     bool receiveACK = false;
     MyTimer timer;
+    double waitingTime = 0;
     int resendTimes = 3;
 };
 

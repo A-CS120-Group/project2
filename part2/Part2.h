@@ -65,7 +65,7 @@ public:
                     if (LAR < seq && seq <= LFS) {
                         info[LFS - seq].receiveACK = true;
                         fprintf(stderr, "ACK %d detected after waiting for %lf\n", seq,
-                                info[LFS - seq].timer.duration());
+                                info[LFS - seq].timer.duration() - info[LFS - seq].waitingTime);
                     }
                 }
                 binaryInputLock.exit();
@@ -76,22 +76,23 @@ public:
                 }
                 // resend timeout frames
                 for (int seq = LFS; seq > LAR; --seq) {
-                    if (info[LFS - seq].receiveACK || info[LFS - seq].timer.duration() < SLIDING_WINDOW_TIMEOUT)
+                    if (info[LFS - seq].receiveACK ||
+                        info[LFS - seq].timer.duration() - info[LFS - seq].waitingTime < SLIDING_WINDOW_TIMEOUT)
                         continue;
                     if (info[LFS - seq].resendTimes == 0) {
                         fprintf(stderr, "Link error detected! seq = %d\n", seq);
                         return;
                     }
-                    writer->send(frameList[seq]);
-                    info[LFS - seq].resendTimes--;
+                    info[LFS - seq].waitingTime = writer->send(frameList[seq]);
                     info[LFS - seq].timer.restart();
+                    info[LFS - seq].resendTimes--;
                     fprintf(stderr, "Frame resent, seq = %d\n", seq);
                 }
                 // try to update LFS and send a frame
                 if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < frameList.rbegin()->seq) {
                     ++LFS;
-                    writer->send(frameList[LFS]);
                     info.insert(info.begin(), FrameWaitingInfo());
+                    info.begin()->waitingTime = writer->send(frameList[LFS]);
                     fprintf(stderr, "Frame sent, seq = %d\n", LFS);
                 }
             }
@@ -169,6 +170,7 @@ private:
         auto maxOutputChannels = activeOutputChannels.getHighestBit() + 1;
         auto buffer = bufferToFill.buffer;
         auto bufferSize = buffer->getNumSamples();
+        // fprintf(stderr, "%d\n", bufferSize);
 
         for (auto channel = 0; channel < maxOutputChannels; ++channel) {
             if ((!activeInputChannels[channel] || !activeOutputChannels[channel]) || maxInputChannels == 0) {
