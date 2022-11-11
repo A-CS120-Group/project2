@@ -184,7 +184,7 @@ private:
                 // Write if PHY layer wants
                 float *writePosition = buffer->getWritePointer(channel);
                 directOutputLock.enter();
-                if (directOutput.empty()) fprintf(stderr, "        Channel Free!!!!\n");
+                // if (directOutput.empty()) fprintf(stderr, "        Channel Free!!!!\n");
                 for (int i = 0; i < bufferSize; ++i) {
                     if (directOutput.empty()) {
                         writePosition[i] = 0.45f;
