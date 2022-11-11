@@ -170,7 +170,6 @@ private:
         auto maxOutputChannels = activeOutputChannels.getHighestBit() + 1;
         auto buffer = bufferToFill.buffer;
         auto bufferSize = buffer->getNumSamples();
-        // fprintf(stderr, "%d\n", bufferSize);
 
         for (auto channel = 0; channel < maxOutputChannels; ++channel) {
             if ((!activeInputChannels[channel] || !activeOutputChannels[channel]) || maxInputChannels == 0) {
@@ -185,6 +184,7 @@ private:
                 // Write if PHY layer wants
                 float *writePosition = buffer->getWritePointer(channel);
                 directOutputLock.enter();
+                if (directOutput.empty()) fprintf(stderr, "        Channel Free!!!!\n");
                 for (int i = 0; i < bufferSize; ++i) {
                     if (directOutput.empty()) {
                         writePosition[i] = 0.45f;
