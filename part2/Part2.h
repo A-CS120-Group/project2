@@ -190,7 +190,8 @@ private:
                 if (directOutput.empty()) {
                     ++channelEmptyPeriods;
                 } else {
-                    fprintf(stderr, "        Channel Empty for %d periods!!!!\n", channelEmptyPeriods);
+                    if (channelEmptyPeriods)
+                        fprintf(stderr, "        Channel Empty for %d periods!!!!\n", channelEmptyPeriods);
                     channelEmptyPeriods = 0;
                 }
                 for (int i = 0; i < bufferSize; ++i) {
