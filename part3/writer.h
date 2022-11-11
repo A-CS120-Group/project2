@@ -31,13 +31,17 @@ public:
     };
 
     void send(const FrameType &frame) {
+        protectOutput->enter();
         while (!output->empty()) {
             protectOutput->exit();
             protectOutput->enter();
         }
+        protectOutput->exit();
+        // listen before transmit
         MyTimer testNoisyTime;
-        while (!quiet->get()); // listen before transmit
+        while (!quiet->get());
         fprintf(stderr, "defer %lfs because of noisy\n", testNoisyTime.duration());
+
         protectOutput->enter();
         // PREAMBLE
         for (auto b: preamble) { writeBool(b); }
