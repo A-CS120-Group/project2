@@ -194,7 +194,7 @@ private:
                 directOutputLock.enter();
                 for (int i = 0; i < bufferSize; ++i) {
                     if (directOutput.empty()) {
-                        writePosition[i] = 0.45f;
+                        writePosition[i] = 0.0f;
                         continue;
                     }
                     writePosition[i] = directOutput.front();
