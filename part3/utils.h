@@ -68,7 +68,7 @@ public:
 struct FrameWaitingInfo {
     bool receiveACK = false;
     MyTimer timer;
-    int resendTimes = 3;
+    int resendTimes = 30;
 };
 
 unsigned int crc(const std::vector<bool> &source);

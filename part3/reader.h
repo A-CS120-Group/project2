@@ -89,7 +89,7 @@ public:
             if (!input->empty()) input->pop();
             protectInput->exit();
             // read LEN, SEQ
-            int numLEN = readShort();
+            int numLEN = (unsigned short) readShort();
             int numSEQ = readShort();
             if (numLEN > MAX_LENGTH_BODY) {
                 // Too long! There must be some errors.
