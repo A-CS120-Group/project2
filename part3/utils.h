@@ -14,7 +14,7 @@
 #define LENGTH_CRC 32
 #define MAX_LENGTH_BODY (MTU - LENGTH_PREAMBLE - LENGTH_SEQ - LENGTH_LEN - LENGTH_CRC)
 #define SLIDING_WINDOW_SIZE 16
-#define SLIDING_WINDOW_TIMEOUT 0.13
+#define SLIDING_WINDOW_TIMEOUT 0.5
 
 /* Structure of a frame
  * PREAMBLE
@@ -68,7 +68,6 @@ public:
 struct FrameWaitingInfo {
     bool receiveACK = false;
     MyTimer timer;
-    double waitingTime = 0;
     int resendTimes = 3;
 };
 

@@ -30,8 +30,7 @@ public:
         for (int i = 0; i < 32; ++i) { writeBool((bool) (x >> i & 1)); }
     };
 
-    // Send a frame, return estimated waiting time
-    double send(const FrameType &frame) {
+    void send(const FrameType &frame) {
         MyTimer testNoisyTime;
         while (!quiet->get()); // listen before transmit
         fprintf(stderr, "    defer %lfs because of noisy\n", testNoisyTime.duration());
@@ -50,9 +49,7 @@ public:
         for (auto b: frame.frame) { writeBool(b); }
         // CRC
         writeInt((int) frame.crc());
-        double waitingTime = (double) output->size() / 48000.0;
         protectOutput->exit();
-        return waitingTime;
     }
 
 private:
