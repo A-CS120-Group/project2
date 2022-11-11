@@ -13,7 +13,7 @@
 class MainContentComponent : public juce::AudioAppComponent {
 public:
     MainContentComponent() {
-        titleLabel.setText("Part2", juce::NotificationType::dontSendNotification);
+        titleLabel.setText("Part3", juce::NotificationType::dontSendNotification);
         titleLabel.setSize(160, 40);
         titleLabel.setFont(juce::Font(36, juce::Font::FontStyleFlags::bold));
         titleLabel.setJustificationType(juce::Justification(juce::Justification::Flags::centred));
