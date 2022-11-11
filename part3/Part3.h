@@ -183,6 +183,7 @@ private:
                 for (int i = bufferSize - LENGTH_PREAMBLE; i < bufferSize; ++i)
                     if (fabs(data[i]) > 0.01f) {
                         nowQuiet = false;
+                        fprintf(stderr, "        Noisy Now!!!!\n");
                         break;
                     }
                 quiet.set(nowQuiet);
@@ -191,7 +192,6 @@ private:
                 // Write if PHY layer wants
                 float *writePosition = buffer->getWritePointer(channel);
                 directOutputLock.enter();
-                // if (directOutput.empty()) fprintf(stderr, "        Channel Free!!!!\n");
                 for (int i = 0; i < bufferSize; ++i) {
                     if (directOutput.empty()) {
                         writePosition[i] = 0.45f;

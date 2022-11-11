@@ -32,7 +32,14 @@ public:
 
     // Send a frame, return estimated waiting time
     double send(const FrameType &frame) {
+        MyTimer testNoisyTime;
+        while (!quiet->get()); // listen before transmit
+        fprintf(stderr, "    defer %lfs because of noisy\n", testNoisyTime.duration());
         protectOutput->enter();
+        while (!output->empty()) {
+            protectOutput->exit();
+            protectOutput->enter();
+        }
         // PREAMBLE
         for (auto b: preamble) { writeBool(b); }
         // LEN
