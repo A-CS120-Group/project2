@@ -7,7 +7,7 @@
 #include <ostream>
 #include <queue>
 
-#define PREAMBLE_THRESHOLD 0.5f
+#define PREAMBLE_THRESHOLD 0.8f
 
 class Reader : public Thread {
 public:
