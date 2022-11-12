@@ -39,7 +39,10 @@ public:
 //            }
             MyTimer testTotalTime;
             std::ifstream fIn("INPUT.bin", std::ios::binary | std::ios::in);
-            assert(fIn.is_open());
+            if (!fIn.is_open()) {
+                fprintf(stderr, "failed to open INPUT.bin!!!");
+                return;
+            }
             std::string data;
             for (char c; fIn.get(c);) { data.push_back(c); }
             int dataLength = (int) data.size();
@@ -151,9 +154,9 @@ private:
     void prepareToPlay([[maybe_unused]] int samplesPerBlockExpected, [[maybe_unused]] double sampleRate) override {
         initThreads();
         AudioDeviceManager::AudioDeviceSetup currentAudioSetup;
-        deviceManager.getAudioDeviceSetup (currentAudioSetup);
+        deviceManager.getAudioDeviceSetup(currentAudioSetup);
         currentAudioSetup.bufferSize = 144; // 144 160 192
-        String ret = deviceManager.setAudioDeviceSetup(currentAudioSetup, true);
+        // String ret = deviceManager.setAudioDeviceSetup(currentAudioSetup, true);
         fprintf(stderr, "Main Thread Start\n");
     }
 
@@ -179,7 +182,7 @@ private:
                 for (int i = bufferSize - LENGTH_PREAMBLE * LENGTH_OF_ONE_BIT; i < bufferSize; ++i)
                     if (fabs(data[i]) > NOISY_THRESHOLD) {
                         nowQuiet = false;
-                        fprintf(stderr, "\t\tNoisy Now!!!!\n");
+//                        fprintf(stderr, "\t\tNoisy Now!!!!\n");
 //                        std::ofstream logOut("log.out", std::ios::app);
 //                        for (int j = 0; j < bufferSize; ++j)logOut << (int) (data[j] * 100) << ' ';
 //                        logOut << "\n";

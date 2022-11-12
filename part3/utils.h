@@ -7,15 +7,15 @@
 #include <vector>
 
 #define LENGTH_OF_ONE_BIT 4
-#define MTU 48
+#define MTU 60
 #define LENGTH_PREAMBLE 3
 #define LENGTH_SEQ 2
 #define LENGTH_LEN 2
 #define LENGTH_CRC 4
 #define MAX_LENGTH_BODY (MTU - LENGTH_PREAMBLE - LENGTH_SEQ - LENGTH_LEN - LENGTH_CRC)
 
-#define SLIDING_WINDOW_SIZE 1
-#define SLIDING_WINDOW_TIMEOUT 0.2
+#define SLIDING_WINDOW_SIZE 3
+#define SLIDING_WINDOW_TIMEOUT 0.5
 #define PREAMBLE_THRESHOLD 0.3f
 #define NOISY_THRESHOLD 0.01f
 
@@ -80,5 +80,5 @@ public:
 struct FrameWaitingInfo {
     bool receiveACK = false;
     MyTimer timer;
-    int resendTimes = 3;
+    int resendTimes = 10;
 };
