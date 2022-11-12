@@ -16,8 +16,10 @@ public:
         static auto MacLayer = [this](bool isNode1) {
             // Transmission Initialization
             std::ifstream fIn("INPUT.bin", std::ios::binary | std::ios::in);
-            if (!fIn.is_open()) {
-                fprintf(stderr, "failed to open INPUT.bin!!!");
+            if (fIn.is_open()) {
+                fprintf(stderr, "successfully open INPUT.bin!\n");
+            } else {
+                fprintf(stderr, "failed to open INPUT.bin!\n");
                 return;
             }
             std::string data;
@@ -83,7 +85,7 @@ public:
                     } else { // It's an ACK
                         if (LAR < seq && seq <= LFS) {
                             info[LFS - seq].receiveACK = true;
-                            fprintf(stderr, "ACK %d detected after %lfs, resendTimes left %d\n", seq,
+                            fprintf(stderr, "ACK %d received after %lfs, resendTimes left %d\n", seq,
                                     info[LFS - seq].timer.duration(), info[LFS - seq].resendTimes);
                         }
                     }
@@ -102,13 +104,13 @@ public:
                         info[LFS - seq].timer.duration() < SLIDING_WINDOW_TIMEOUT)
                         continue;
                     if (info[LFS - seq].resendTimes == 0) {
-                        fprintf(stderr, "Link error detected! seq = %d\n", seq);
+                        fprintf(stderr, "Link error detected! frame seq = %d resend too many times...\n", seq);
                         return;
                     }
                     writer->send(frameListSent[seq]);
                     info[LFS - seq].timer.restart();
                     info[LFS - seq].resendTimes--;
-                    fprintf(stderr, "Frame resent, seq = %d\n", seq);
+                    fprintf(stderr, "Oh No Frame Resent!, seq = %d\n", seq);
                 }
                 // try to update LFS and send a frame
                 if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < (unsigned) frameNumSent) {
@@ -127,16 +129,16 @@ public:
         titleLabel.setCentrePosition(300, 40);
         addAndMakeVisible(titleLabel);
 
-        Node1Button.setButtonText("Send");
+        Node1Button.setButtonText("Node1");
         Node1Button.setSize(80, 40);
         Node1Button.setCentrePosition(150, 140);
         Node1Button.onClick = [] { return MacLayer(true); };
         addAndMakeVisible(Node1Button);
 
-        Node2Button.setButtonText("Save");
+        Node2Button.setButtonText("Node2");
         Node2Button.setSize(80, 40);
         Node2Button.setCentrePosition(450, 140);
-        Node1Button.onClick = [] { return MacLayer(false); };
+        Node2Button.onClick = [] { return MacLayer(false); };
         addAndMakeVisible(Node2Button);
 
         setSize(600, 300);

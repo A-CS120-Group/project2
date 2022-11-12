@@ -22,7 +22,8 @@ public:
         // listen before transmit
         MyTimer testNoisyTime;
         while (!quiet->get());
-        fprintf(stderr, "defer %lfs because of noisy\n", testNoisyTime.duration());
+        if (testNoisyTime.duration() > 1e-3)
+            fprintf(stderr, "Writer.send defer %lfs because of noisy\n", testNoisyTime.duration());
         // transmit
         protectOutput->enter();
         std::string str = std::string(preamble, LENGTH_PREAMBLE) + frame.wholeString() + inString(frame.crc());
