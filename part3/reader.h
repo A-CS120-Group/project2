@@ -7,8 +7,6 @@
 #include <ostream>
 #include <queue>
 
-#define PREAMBLE_THRESHOLD 0.5f
-
 class Reader : public Thread {
 public:
     Reader() = delete;

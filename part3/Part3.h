@@ -196,7 +196,7 @@ private:
                 directOutputLock.enter();
                 for (int i = 0; i < bufferSize; ++i) {
                     if (directOutput.empty()) {
-                        writePosition[i] = 0.0f;
+                        writePosition[i] = BACKGROUND_SIG;
                         continue;
                     }
                     writePosition[i] = directOutput.front();

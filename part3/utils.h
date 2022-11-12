@@ -6,7 +6,7 @@
 #include <iostream>
 #include <vector>
 
-#define LENGTH_OF_ONE_BIT 4// Must be a number in 1/2/3/4/5/6/8/10
+#define LENGTH_OF_ONE_BIT 4 // Must be a number in 1/2/3/4/5/6/8/10
 #define MTU 412
 #define LENGTH_PREAMBLE 24
 #define LENGTH_SEQ 16
@@ -15,6 +15,11 @@
 #define MAX_LENGTH_BODY (MTU - LENGTH_PREAMBLE - LENGTH_SEQ - LENGTH_LEN - LENGTH_CRC)
 #define SLIDING_WINDOW_SIZE 1
 #define SLIDING_WINDOW_TIMEOUT 0.2
+
+#define POSITIVE_SIG 1.0f
+#define NEGATIVE_SIG 0.0f
+#define BACKGROUND_SIG 0.5f
+#define PREAMBLE_THRESHOLD 0.5f
 
 /* Structure of a frame
  * PREAMBLE
