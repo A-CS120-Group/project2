@@ -11,7 +11,7 @@ using SEQType = char;
 
 #define LENGTH_OF_ONE_BIT 4
 #define MTU 60
-#define LENGTH_PREAMBLE 2
+#define LENGTH_PREAMBLE 3
 #define LENGTH_LEN sizeof(LENType)
 #define LENGTH_SEQ sizeof(SEQType)
 #define LENGTH_CRC sizeof(unsigned int)
@@ -38,7 +38,7 @@ template<class T>
  * BODY
  * CRC
  */
-constexpr char preamble[LENGTH_PREAMBLE]{0x55, 0x5f};
+constexpr char preamble[LENGTH_PREAMBLE]{0x55, 0x55, 0x5f};
 
 class FrameType {
 public:

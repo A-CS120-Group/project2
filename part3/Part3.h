@@ -13,31 +13,8 @@
 class MainContentComponent : public juce::AudioAppComponent {
 public:
     MainContentComponent() {
-        titleLabel.setText("Part3", juce::NotificationType::dontSendNotification);
-        titleLabel.setSize(160, 40);
-        titleLabel.setFont(juce::Font(36, juce::Font::FontStyleFlags::bold));
-        titleLabel.setJustificationType(juce::Justification(juce::Justification::Flags::centred));
-        titleLabel.setCentrePosition(300, 40);
-        addAndMakeVisible(titleLabel);
-
-        sendButton.setButtonText("Send");
-        sendButton.setSize(80, 40);
-        sendButton.setCentrePosition(150, 140);
-        sendButton.onClick = [this] {
-//            writer->send(FrameType(0, 0));
-//            MyTimer testRingTime;
-//            while (true) {
-//                binaryInputLock.enter();
-//                if (binaryInput.empty()) {
-//                    binaryInputLock.exit();
-//                    continue;
-//                }
-//                fprintf(stderr, "%lf\n", testRingTime.duration());
-//                binaryInput.pop();
-//                binaryInputLock.exit();
-//                break;
-//            }
-            MyTimer testTotalTime;
+        static auto MacLayer = [this](bool isNode1) {
+            // Transmission Initialization
             std::ifstream fIn("INPUT.bin", std::ios::binary | std::ios::in);
             if (!fIn.is_open()) {
                 fprintf(stderr, "failed to open INPUT.bin!!!");
@@ -46,32 +23,78 @@ public:
             std::string data;
             for (char c; fIn.get(c);) { data.push_back(c); }
             size_t dataLength = data.size();
-            std::vector<FrameType> frameList(1, {0, 0, nullptr}); // the first one is dummy
-            for (unsigned i = 0; i * MAX_LENGTH_BODY < dataLength; ++i) {
-                size_t len = std::min(MAX_LENGTH_BODY, dataLength - i * MAX_LENGTH_BODY);
-                frameList.emplace_back(FrameType((LENType) len, (SEQType) (i + 1), data.c_str() + i));
-            }
-            unsigned LAR = 0, LFS = 0, frameNumber = (unsigned) frameList.size() - 1;
+            // frameList[0] is used to store the number of frames
+            std::vector<FrameType> frameListSent(1), frameListRec;
             std::vector<FrameWaitingInfo> info;
-            while (LAR < frameNumber) {
-                // try to receive an ACK
-                binaryInputLock.enter();
-                while (!binaryInput.empty()) {
-                    FrameType ACKFrame = binaryInput.front();
-                    binaryInput.pop();
-                    if (ACKFrame.len != 0) continue;
-                    auto seq = (unsigned) abs(ACKFrame.seq);
-                    if (LAR < seq && seq <= LFS) {
-                        info[LFS - seq].receiveACK = true;
-                        fprintf(stderr, "ACK %d detected after waiting for %lf\n", seq,
-                                info[LFS - seq].timer.duration());
-                    }
+            for (unsigned i = 0; i * MAX_LENGTH_BODY < dataLength; ++i) {
+                auto len = (LENType) std::min(MAX_LENGTH_BODY, dataLength - i * MAX_LENGTH_BODY);
+                auto seq = (SEQType) ((i + 2) * (isNode1 ? 1 : -1));
+                frameListSent.emplace_back(FrameType(len, seq, data.c_str() + i));
+            }
+            auto frameNumSent = (SEQType) frameListSent.size();
+            frameListSent[0] = FrameType((LENType) LENGTH_SEQ, (SEQType) (isNode1 ? 1 : -1), &frameNumSent);
+            // Node2 waits for Node1 to tell it start
+            if (!isNode1) {
+                while (true) {
+                    binaryInputLock.enter();
+                    if (!binaryInput.empty()) break;
+                    binaryInputLock.exit();
                 }
                 binaryInputLock.exit();
+            }
+            MyTimer testTotalTime;
+            unsigned LAR = 0, LFS = 0, LFR = 0;
+            bool ACKedAll = false, receiveAll = false;
+            while (!ACKedAll || !receiveAll) {
+                // try to receive a frame or an ACK
+                while (true) {
+                    binaryInputLock.enter();
+                    if (binaryInput.empty()) {
+                        binaryInputLock.exit();
+                        break;
+                    }
+                    FrameType frame = binaryInput.front();
+                    binaryInput.pop();
+                    binaryInputLock.exit();
+                    // ignore self sent
+                    if (isNode1 ? frame.seq > 0 : frame.seq < 0)
+                        continue;
+                    auto seq = (unsigned) abs(frame.seq);
+                    // It's a frame
+                    if (frame.len != 0) {
+                        fprintf(stderr, "frame received, seq = %d\n", seq);
+                        // Accept this frame and update LFR
+                        while (frameListRec.size() < seq) frameListRec.emplace_back(FrameType());
+                        frameListRec[seq - 1] = frame;
+                        while (LFR < frameListRec.size() && frameListRec[LFR].len != 0) ++LFR;
+                        // send ACK
+                        writer->send(FrameType(0, (SEQType) -frame.seq, nullptr));
+                        fprintf(stderr, "ACK sent, seq = %d\n", seq);
+                        // every frame from the other Node is received
+                        if (!receiveAll && LFR == (unsigned) *(SEQType *) &frameListRec[0].body) {
+                            receiveAll = true;
+                            fprintf(stderr, "------- All frames received in %lfs --------\n", testTotalTime.duration());
+                            std::ofstream fOut("OUTPUT.bin", std::ios::binary | std::ios::out);
+                            for (seq = 2; seq <= frameListRec.size(); ++seq) {
+                                for (unsigned i = 0; i < frameListRec[seq - 1].len; ++i)
+                                    fOut.put(frameListRec[seq - 1].body[i]);
+                            }
+                        }
+                    } else { // It's an ACK
+                        if (LAR < seq && seq <= LFS) {
+                            info[LFS - seq].receiveACK = true;
+                            fprintf(stderr, "ACK %d detected after %lfs, resendTimes left %d\n", seq,
+                                    info[LFS - seq].timer.duration(), info[LFS - seq].resendTimes);
+                        }
+                    }
+                }
                 // update LAR
                 while (LAR < LFS && info.rbegin()->receiveACK) {
                     ++LAR;
                     info.pop_back();
+                    // every frame to the other Node is ACKed
+                    if (!ACKedAll && LAR == (unsigned) frameNumSent)
+                        ACKedAll = true;
                 }
                 // resend timeout frames
                 for (unsigned seq = LFS; seq > LAR; --seq) {
@@ -82,61 +105,39 @@ public:
                         fprintf(stderr, "Link error detected! seq = %d\n", seq);
                         return;
                     }
-                    writer->send(frameList[seq]);
+                    writer->send(frameListSent[seq]);
                     info[LFS - seq].timer.restart();
                     info[LFS - seq].resendTimes--;
                     fprintf(stderr, "Frame resent, seq = %d\n", seq);
                 }
                 // try to update LFS and send a frame
-                if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < frameNumber) {
+                if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < (unsigned) frameNumSent) {
                     ++LFS;
-                    writer->send(frameList[LFS]);
+                    writer->send(frameListSent[LFS]);
                     info.insert(info.begin(), FrameWaitingInfo());
                     fprintf(stderr, "Frame sent, seq = %d\n", LFS);
                 }
             }
-            // all ACKs detected, tell the receiver client to terminate
-            writer->send(frameList[0]);
-            writer->send(frameList[0]);
-            fprintf(stderr, "Transmission finished in %lfs\n", testTotalTime.duration());
         };
-        addAndMakeVisible(sendButton);
 
-        saveButton.setButtonText("Save");
-        saveButton.setSize(80, 40);
-        saveButton.setCentrePosition(450, 140);
-        saveButton.onClick = [this] {
-            int LFR = 0;
-            std::map<int, FrameType> frameList;
-            while (true) {
-                binaryInputLock.enter();
-                if (binaryInput.empty()) {
-                    binaryInputLock.exit();
-                    continue;
-                }
-                FrameType frame = binaryInput.front();
-                binaryInput.pop();
-                binaryInputLock.exit();
-                fprintf(stderr, "frame received, seq = %d\n", frame.seq);
-                // End of transmission
-                if (frame.seq == 0) break;
-                // Discard it because it's ACK sent by itself
-                if (frame.len == 0) continue;
-                // Accept this frame and update LFR
-                frameList.insert(std::make_pair(frame.seq, frame));
-                while (frameList.find(LFR + 1) != frameList.end()) ++LFR;
-                // send ACK
-                writer->send({0, frame.seq, nullptr});
-                fprintf(stderr, "ACK sent, seq = %d\n", frame.seq);
-            }
-            std::ofstream fOut("OUTPUT.bin", std::ios::binary | std::ios::out);
-            for (auto const &iter: frameList) {
-                auto const &frame = iter.second;
-                for (unsigned i = 0; i < frame.len; ++i)
-                    fOut.put(frame.body[i]);
-            }
-        };
-        addAndMakeVisible(saveButton);
+        titleLabel.setText("Part3", juce::NotificationType::dontSendNotification);
+        titleLabel.setSize(160, 40);
+        titleLabel.setFont(juce::Font(36, juce::Font::FontStyleFlags::bold));
+        titleLabel.setJustificationType(juce::Justification(juce::Justification::Flags::centred));
+        titleLabel.setCentrePosition(300, 40);
+        addAndMakeVisible(titleLabel);
+
+        Node1Button.setButtonText("Send");
+        Node1Button.setSize(80, 40);
+        Node1Button.setCentrePosition(150, 140);
+        Node1Button.onClick = [] { return MacLayer(true); };
+        addAndMakeVisible(Node1Button);
+
+        Node2Button.setButtonText("Save");
+        Node2Button.setSize(80, 40);
+        Node2Button.setCentrePosition(450, 140);
+        Node1Button.onClick = [] { return MacLayer(false); };
+        addAndMakeVisible(Node2Button);
 
         setSize(600, 300);
         setAudioChannels(1, 1);
@@ -238,8 +239,8 @@ private:
 
     // GUI related
     juce::Label titleLabel;
-    juce::TextButton sendButton;
-    juce::TextButton saveButton;
+    juce::TextButton Node1Button;
+    juce::TextButton Node2Button;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainContentComponent)
 };
