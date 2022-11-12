@@ -45,11 +45,11 @@ public:
             }
             std::string data;
             for (char c; fIn.get(c);) { data.push_back(c); }
-            int dataLength = (int) data.size();
+            size_t dataLength = data.size();
             std::vector<FrameType> frameList(1, {0, 0, nullptr}); // the first one is dummy
-            for (int i = 0; i * MAX_LENGTH_BODY < dataLength; ++i) {
-                int len = std::min(MAX_LENGTH_BODY, dataLength - i * MAX_LENGTH_BODY);
-                frameList.emplace_back(FrameType((unsigned short) len, (short) (i + 1), data.c_str() + i));
+            for (unsigned i = 0; i * MAX_LENGTH_BODY < dataLength; ++i) {
+                size_t len = std::min(MAX_LENGTH_BODY, dataLength - i * MAX_LENGTH_BODY);
+                frameList.emplace_back(FrameType((LENType) len, (SEQType) (i + 1), data.c_str() + i));
             }
             unsigned LAR = 0, LFS = 0, frameNumber = (unsigned) frameList.size() - 1;
             std::vector<FrameWaitingInfo> info;

@@ -6,12 +6,15 @@
 #include <iostream>
 #include <vector>
 
+using LENType = unsigned char;
+using SEQType = char;
+
 #define LENGTH_OF_ONE_BIT 4
 #define MTU 60
-#define LENGTH_PREAMBLE 3
-#define LENGTH_SEQ 2
-#define LENGTH_LEN 2
-#define LENGTH_CRC 4
+#define LENGTH_PREAMBLE 2
+#define LENGTH_LEN sizeof(LENType)
+#define LENGTH_SEQ sizeof(SEQType)
+#define LENGTH_CRC sizeof(unsigned int)
 #define MAX_LENGTH_BODY (MTU - LENGTH_PREAMBLE - LENGTH_SEQ - LENGTH_LEN - LENGTH_CRC)
 
 #define SLIDING_WINDOW_SIZE 3
@@ -35,17 +38,17 @@ template<class T>
  * BODY
  * CRC
  */
-constexpr char preamble[LENGTH_PREAMBLE]{0x77, 0x77, 0x7f};
+constexpr char preamble[LENGTH_PREAMBLE]{0x55, 0x5f};
 
 class FrameType {
 public:
-    unsigned short len = 0;
-    short seq = 0;
+    LENType len = 0;
+    SEQType seq = 0;
     char body[MAX_LENGTH_BODY]{};
 
     FrameType() = default;
 
-    FrameType(decltype(len) numLen, decltype(seq) numSeq, const char *bodySrc) :
+    FrameType(LENType numLen, SEQType numSeq, const char *bodySrc) :
             len(numLen), seq(numSeq) {
         memcpy(body, bodySrc, len);
     }
