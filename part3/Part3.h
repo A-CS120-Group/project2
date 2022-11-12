@@ -37,6 +37,7 @@ public:
 //                binaryInputLock.exit();
 //                break;
 //            }
+            MyTimer testTotalTime;
             std::ifstream fIn("INPUT.bin", std::ios::binary | std::ios::in);
             assert(fIn.is_open());
             std::string data;
@@ -94,6 +95,7 @@ public:
             // all ACKs detected, tell the receiver client to terminate
             writer->send(frameList[0]);
             writer->send(frameList[0]);
+            fprintf(stderr, "Transmission finished in %lfs\n", testTotalTime.duration());
         };
         addAndMakeVisible(sendButton);
 
