@@ -41,10 +41,10 @@ public:
                 }
             }
         // wait until the transmission finished
-        while (!output->empty()) {
-            protectOutput->exit();
-            protectOutput->enter();
-        }
+//        while (!output->empty()) {
+//            protectOutput->exit();
+//            protectOutput->enter();
+//        }
         protectOutput->exit();
     }
 

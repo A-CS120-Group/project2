@@ -150,6 +150,10 @@ private:
 
     void prepareToPlay([[maybe_unused]] int samplesPerBlockExpected, [[maybe_unused]] double sampleRate) override {
         initThreads();
+        AudioDeviceManager::AudioDeviceSetup currentAudioSetup;
+        deviceManager.getAudioDeviceSetup (currentAudioSetup);
+        currentAudioSetup.bufferSize = 144; // 144 160 192
+        String ret = deviceManager.setAudioDeviceSetup(currentAudioSetup, true);
         fprintf(stderr, "Main Thread Start\n");
     }
 
