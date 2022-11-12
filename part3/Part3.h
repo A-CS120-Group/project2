@@ -118,7 +118,7 @@ public:
                 // End of transmission
                 if (frame.seq == 0) break;
                 // Discard it because it's ACK sent by itself
-                if (frame.seq < 0) continue;
+                if (frame.len == 0) continue;
                 // Accept this frame and update LFR
                 frameList.insert(std::make_pair(frame.seq, frame));
                 while (frameList.find(LFR + 1) != frameList.end()) ++LFR;
