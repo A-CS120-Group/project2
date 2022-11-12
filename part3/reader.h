@@ -38,12 +38,14 @@ public:
             input->pop();
             protectInput->exit();
             if (++bufferPos == LENGTH_OF_ONE_BIT) {
-                bufferPos = 0;
                 int bit = judgeBit(buffer[0], buffer[2]);
-                if (bit == -1) {
-                    fprintf(stderr, "\t??? bit undetermined! %f %f %f %f\n", buffer[0], buffer[2], buffer[1], buffer[3]);
-                    bit = buffer[1] - buffer[3] > 0.0f;
+                if (bit == -1) { // shift by one sample
+                    for (int i = 1; i < LENGTH_OF_ONE_BIT; ++i)
+                        buffer[i - 1] = buffer[i];
+                    --bufferPos;
+                    continue;
                 }
+                bufferPos = 0;
                 byte = (char) (byte | (bit << bitPos));
                 if (++bitPos == 8) break;
             }
