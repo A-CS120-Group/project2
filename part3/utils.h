@@ -25,7 +25,7 @@ int judgeBit(float signal1, float signal2);
 
 template<class T>
 [[nodiscard]] std::string inString(T object) {
-    return {(const char *) &object, sizeof(short)};
+    return {(const char *) &object, sizeof(T)};
 }
 
 /* Structure of a frame
@@ -51,7 +51,7 @@ public:
     }
 
     [[nodiscard]] std::string wholeString() const {
-        auto ret = inString(len) + inString(seq) + std::string(body, len);
+        std::string ret = inString(len) + inString(seq) + std::string(body, len);
         return ret;
     }
 
