@@ -47,16 +47,16 @@ public:
                 int len = std::min(MAX_LENGTH_BODY, dataLength - i * MAX_LENGTH_BODY);
                 frameList.emplace_back(FrameType((unsigned short)len, (short) (i + 1), data.c_str() + i));
             }
-            unsigned LAR = 0, LFS = 0;
+            unsigned LAR = 0, LFS = 0, frameNumber = (unsigned) frameList.size() - 1;
             std::vector<FrameWaitingInfo> info;
-            while (LAR < frameList.size()-1) {
+            while (LAR < frameNumber) {
                 // try to receive an ACK
                 binaryInputLock.enter();
                 while (!binaryInput.empty()) {
                     FrameType ACKFrame = binaryInput.front();
                     binaryInput.pop();
                     if (ACKFrame.len!=0) continue;
-                    unsigned seq = ACKFrame.seq;
+                    auto seq = (unsigned)abs(ACKFrame.seq);
                     if (LAR < seq && seq <= LFS) {
                         info[LFS - seq].receiveACK = true;
                         fprintf(stderr, "ACK %d detected after waiting for %lf\n", seq,
@@ -70,7 +70,7 @@ public:
                     info.pop_back();
                 }
                 // resend timeout frames
-                for (int seq = LFS; seq > LAR; --seq) {
+                for (unsigned seq = LFS; seq > LAR; --seq) {
                     if (info[LFS - seq].receiveACK ||
                         info[LFS - seq].timer.duration() < SLIDING_WINDOW_TIMEOUT)
                         continue;
@@ -84,7 +84,7 @@ public:
                     fprintf(stderr, "Frame resent, seq = %d\n", seq);
                 }
                 // try to update LFS and send a frame
-                if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < frameList.rbegin()->seq) {
+                if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < frameNumber) {
                     ++LFS;
                     writer->send(frameList[LFS]);
                     info.insert(info.begin(), FrameWaitingInfo());
