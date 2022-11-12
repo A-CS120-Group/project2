@@ -58,12 +58,12 @@ public:
                     FrameType frame = binaryInput.front();
                     binaryInput.pop();
                     binaryInputLock.exit();
-                    // ignore self sent
-                    if (isNode1 ? frame.seq > 0 : frame.seq < 0)
-                        continue;
-                    auto seq = (unsigned) abs(frame.seq), index = seq - 1;
+                    auto seqNum = (unsigned) abs(frame.seq), index = seqNum - 1;
                     // It's a frame
                     if (frame.len != 0) {
+                        // ignore self sent
+                        if (isNode1 ? frame.seq > 0 : frame.seq < 0)
+                            continue;
                         fprintf(stderr, "frame received, seq = %d\n", frame.seq);
                         // Accept this frame and update LFR
                         while (frameListRec.size() <= index) frameListRec.emplace_back(FrameType());
@@ -71,7 +71,7 @@ public:
                         while (LFR < frameListRec.size() && frameListRec[LFR].len != 0) ++LFR;
                         // send ACK
                         writer->send(FrameType(0, (SEQType) -frame.seq, nullptr));
-                        fprintf(stderr, "ACK sent, seq = %d\n", seq);
+                        fprintf(stderr, "ACK sent, seq = %d\n", -frame.seq);
                         // every frame from the other Node is received
                         if (!receiveAll && LFR == (unsigned) *(SEQType *) &frameListRec[0].body) {
                             receiveAll = true;
@@ -83,10 +83,10 @@ public:
                             }
                         }
                     } else { // It's an ACK
-                        if (LAR < seq && seq <= LFS) {
-                            info[LFS - seq].receiveACK = true;
-                            fprintf(stderr, "ACK %d received after %lfs, resendTimes left %d\n", seq,
-                                    info[LFS - seq].timer.duration(), info[LFS - seq].resendTimes);
+                        if (LAR < seqNum && seqNum <= LFS) {
+                            info[LFS - seqNum].receiveACK = true;
+                            fprintf(stderr, "ACK %d received after %lfs, resendTimes left %d\n", frame.seq,
+                                    info[LFS - seqNum].timer.duration(), info[LFS - seqNum].resendTimes);
                         }
                     }
                 }
@@ -99,7 +99,7 @@ public:
                         ACKedAll = true;
                 }
                 // resend timeout frames
-                for (unsigned seq = LFS; seq > LAR; --seq) {
+                for (unsigned seq = LAR+1; seq <= LFS; ++seq) {
                     if (info[LFS - seq].receiveACK ||
                         info[LFS - seq].timer.duration() < SLIDING_WINDOW_TIMEOUT)
                         continue;
@@ -108,9 +108,9 @@ public:
                         return;
                     }
                     writer->send(frameListSent[seq - 1]);
+                    fprintf(stderr, "Oh No Frame Resent!, seq = %d\n", frameListSent[seq - 1].seq);
                     info[LFS - seq].timer.restart();
                     info[LFS - seq].resendTimes--;
-                    fprintf(stderr, "Oh No Frame Resent!, seq = %d\n", seq);
                 }
                 // try to update LFS and send a frame
                 if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < (unsigned) frameNumSent) {

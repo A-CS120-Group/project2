@@ -34,7 +34,7 @@ template<class T>
 /* Structure of a frame
  * PREAMBLE
  * LEN      the length of BODY; Len = 0: ACK
- * SEQ      +x: Node1 counter , -x: Node2 counter, 0: end signal;
+ * SEQ      +x: Node1 frame, -x: Node2 frame;
  * BODY
  * CRC
  */
