@@ -28,31 +28,55 @@ public:
         float buffer[LENGTH_OF_ONE_BIT];
         char byte = 0;
         int bufferPos = 0, bitPos = 0;
-        protectInput->enter();
         while (!threadShouldExit()) {
+            protectInput->enter();
             if (input->empty()) {
                 protectInput->exit();
-                protectInput->enter();
                 continue;
             }
             buffer[bufferPos] = input->front();
             input->pop();
+            protectInput->exit();
             if (++bufferPos == LENGTH_OF_ONE_BIT) {
                 bufferPos = 0;
                 int bit = judgeBit(buffer[0], buffer[2]);
-                assert(bit != -1);
+                if (bit == -1) {
+                    fprintf(stderr, "\t??? bit undetermined!\n");
+                }
                 byte = (char) (byte | (bit << bitPos));
                 if (++bitPos == 8) break;
             }
         }
-        protectInput->exit();
         return byte;
     };
 
     template<class T>
     void readObject(T &object) {
         for (size_t i = 0; i < sizeof(object); ++i)
-            *(char *) &object = readByte();
+            ((char *) &object)[i] = readByte();
+    }
+
+    void waitForPreamble() {
+        auto sync = std::deque<float>(LENGTH_PREAMBLE * 8 * LENGTH_OF_ONE_BIT, 0);
+        while (!threadShouldExit()) {
+            protectInput->enter();
+            if (input->empty()) {
+                protectInput->exit();
+                continue;
+            }
+            sync.pop_front();
+            sync.push_back(input->front());
+            input->pop();
+            protectInput->exit();
+            bool isPreamble = true;
+            for (int i = 0; isPreamble && i < 8 * LENGTH_PREAMBLE; ++i) {
+                isPreamble = (preamble[i / 8] >> (i % 8) & 1) ==
+                             judgeBit(sync[i * LENGTH_OF_ONE_BIT], sync[i * LENGTH_OF_ONE_BIT + 2]);
+            }
+            if (isPreamble)
+                return;
+        }
+        fprintf(stderr, "exit\n");
     }
 
     void run() override {
@@ -60,25 +84,6 @@ public:
         assert(output != nullptr);
         assert(protectInput != nullptr);
         assert(protectOutput != nullptr);
-        auto waitForPreamble = [this]() {
-            auto sync = std::deque<float>(LENGTH_PREAMBLE * LENGTH_OF_ONE_BIT, 0);
-            protectInput->enter();
-            while (!threadShouldExit()) {
-                if (input->empty()) {
-                    protectInput->exit();
-                    protectInput->enter();
-                    continue;
-                }
-                sync.pop_front();
-                sync.push_back(input->front());
-                input->pop();
-                bool isPreamble = true;
-                for (int i = 0; isPreamble && i < 8 * LENGTH_PREAMBLE; ++i)
-                    isPreamble = (preamble[i / 8] >> (i % 8) & 1) ==
-                                 judgeBit(sync[i * LENGTH_OF_ONE_BIT], sync[i * LENGTH_OF_ONE_BIT + 2]);
-                if (isPreamble) return;
-            }
-        };
         while (!threadShouldExit()) {
             // wait for PREAMBLE
             waitForPreamble();

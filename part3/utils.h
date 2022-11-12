@@ -7,7 +7,7 @@
 #include <vector>
 
 #define LENGTH_OF_ONE_BIT 4
-#define MTU 64
+#define MTU 32
 #define LENGTH_PREAMBLE 3
 #define LENGTH_SEQ 2
 #define LENGTH_LEN 2

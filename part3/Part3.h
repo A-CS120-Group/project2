@@ -158,7 +158,6 @@ private:
         auto maxOutputChannels = activeOutputChannels.getHighestBit() + 1;
         auto buffer = bufferToFill.buffer;
         auto bufferSize = buffer->getNumSamples();
-
         for (auto channel = 0; channel < maxOutputChannels; ++channel) {
             if ((!activeInputChannels[channel] || !activeOutputChannels[channel]) || maxInputChannels == 0) {
                 bufferToFill.buffer->clear(channel, bufferToFill.startSample, bufferToFill.numSamples);
@@ -167,17 +166,18 @@ private:
                 const float *data = buffer->getReadPointer(channel);
                 directInputLock.enter();
                 for (int i = 0; i < bufferSize; ++i) { directInput.push(data[i]); }
+                directInputLock.exit();
+                // listen if the channel is quiet
                 bool nowQuiet = true;
                 for (int i = bufferSize - LENGTH_PREAMBLE * LENGTH_OF_ONE_BIT; i < bufferSize; ++i)
                     if (fabs(data[i]) > 0.01f) {
                         nowQuiet = false;
                         fprintf(stderr, "\t\tNoisy Now!!!!\n");
-                        for (int j = 0; j < bufferSize; ++j)fprintf(stderr, "%d ", (int) (data[j]) * 100);
+                        for (int j = 0; j < bufferSize; ++j)fprintf(stderr, "%d ", (int) (data[j] * 100));
                         fprintf(stderr, "\n");
                         break;
                     }
                 quiet.set(nowQuiet);
-                directInputLock.exit();
                 buffer->clear();
                 // Write if PHY layer wants
                 float *writePosition = buffer->getWritePointer(channel);
