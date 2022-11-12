@@ -16,7 +16,7 @@
 
 #define SLIDING_WINDOW_SIZE 1
 #define SLIDING_WINDOW_TIMEOUT 1
-#define PREAMBLE_THRESHOLD 0.5f
+#define PREAMBLE_THRESHOLD 0.3f
 #define NOISY_THRESHOLD 0.1f
 
 unsigned int crc32(const char *src, size_t srcSize);
@@ -51,7 +51,8 @@ public:
     }
 
     [[nodiscard]] std::string wholeString() const {
-        return inString(len) + inString(seq) + std::string(body, len);
+        auto ret = inString(len) + inString(seq) + std::string(body, len);
+        return ret;
     }
 
     [[nodiscard]] unsigned int crc() const {

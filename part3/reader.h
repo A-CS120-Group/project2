@@ -41,7 +41,8 @@ public:
                 bufferPos = 0;
                 int bit = judgeBit(buffer[0], buffer[2]);
                 if (bit == -1) {
-                    fprintf(stderr, "\t??? bit undetermined!\n");
+                    fprintf(stderr, "\t??? bit undetermined! %f %f\n", buffer[0], buffer[2]);
+                    bit = buffer[0] - buffer[2] > 0.0f;
                 }
                 byte = (char) (byte | (bit << bitPos));
                 if (++bitPos == 8) break;
@@ -64,6 +65,9 @@ public:
                 protectInput->exit();
                 continue;
             }
+            if (sync.front() > NOISY_THRESHOLD) {
+                std::cout << "";
+            }
             sync.pop_front();
             sync.push_back(input->front());
             input->pop();
@@ -72,6 +76,9 @@ public:
             for (unsigned i = 0; isPreamble && i < 8 * LENGTH_PREAMBLE; ++i) {
                 isPreamble = (preamble[i / 8] >> (i % 8) & 1) ==
                              judgeBit(sync[i * LENGTH_OF_ONE_BIT], sync[i * LENGTH_OF_ONE_BIT + 2]);
+                if (i > 10) {
+                    std::cout << "";
+                }
             }
             if (isPreamble)
                 return;
