@@ -193,16 +193,20 @@ private:
                 buffer->clear();
                 // Write if PHY layer wants
                 float *writePosition = buffer->getWritePointer(channel);
-                directOutputLock.enter();
-                for (int i = 0; i < bufferSize; ++i) {
-                    if (directOutput.empty()) {
-                        writePosition[i] = BACKGROUND_SIG;
-                        continue;
-                    }
-                    writePosition[i] = directOutput.front();
-                    directOutput.pop();
-                }
-                directOutputLock.exit();
+                for (int i = 0; i < bufferSize; ++i)
+                    writePosition[i] = 0.0f;
+                for (int i = 0; i < 4; ++i)
+                    writePosition[i] = i & 1 ? 1.0f : -1.0f;
+//                directOutputLock.enter();
+//                for (int i = 0; i < bufferSize; ++i) {
+//                    if (directOutput.empty()) {
+//                        writePosition[i] = BACKGROUND_SIG;
+//                        continue;
+//                    }
+//                    writePosition[i] = directOutput.front();
+//                    directOutput.pop();
+//                }
+//                directOutputLock.exit();
             }
         }
     }

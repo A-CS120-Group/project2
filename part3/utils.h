@@ -17,9 +17,9 @@
 #define SLIDING_WINDOW_TIMEOUT 0.2
 
 #define POSITIVE_SIG 1.0f
-#define NEGATIVE_SIG 0.0f
-#define BACKGROUND_SIG 0.5f
-#define PREAMBLE_THRESHOLD 0.5f
+#define NEGATIVE_SIG -1.0f
+#define BACKGROUND_SIG 0.0f
+#define PREAMBLE_THRESHOLD 0.3f
 
 /* Structure of a frame
  * PREAMBLE

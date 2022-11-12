@@ -30,23 +30,21 @@ public:
         assert(protectInput != nullptr);
         assert(protectOutput != nullptr);
         auto readBool = [this]() {
-            auto temp = 0;
-            auto avg = 0.0f;
-            while (!threadShouldExit()) {
-                protectInput->enter();
+            float sum = 0.0f;
+            protectInput->enter();
+            for (int i = 0; i < LENGTH_OF_ONE_BIT && !threadShouldExit(); ++i) {
                 if (input->empty()) {
                     protectInput->exit();
                     continue;
                 }
                 float nextValue = input->front();
                 input->pop();
-                protectInput->exit();
-                // Divide here - in case we have a complex float-to-bool method
-                avg += nextValue / LENGTH_OF_ONE_BIT;
-                ++temp;
-                if (temp == LENGTH_OF_ONE_BIT) { return (avg > 0.0f); }
+                if (i != 0 && i != LENGTH_OF_ONE_BIT - 1)
+                    sum += 2 * nextValue;
+                else sum += nextValue;
             }
-            return false;
+            protectInput->exit();
+            return sum > 0.0f;
         };
         auto readShort = [readBool]() {
             short ret = 0;
