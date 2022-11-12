@@ -25,7 +25,8 @@ public:
         fprintf(stderr, "defer %lfs because of noisy\n", testNoisyTime.duration());
         // transmit
         protectOutput->enter();
-        for (auto byte: preamble + frame.wholeString() + inString(frame.crc()))
+        std::string str = std::string(preamble, LENGTH_PREAMBLE) + frame.wholeString() + inString(frame.crc());
+        for (auto byte: str)
             for (int bitPos = 0; bitPos < 8; ++bitPos) {
                 if (byte >> bitPos & 1) {
                     output->push(1.0f);
