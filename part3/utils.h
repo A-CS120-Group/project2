@@ -17,7 +17,7 @@
 #define SLIDING_WINDOW_SIZE 1
 #define SLIDING_WINDOW_TIMEOUT 1
 #define PREAMBLE_THRESHOLD 0.3f
-#define NOISY_THRESHOLD 0.1f
+#define NOISY_THRESHOLD 0.01f
 
 unsigned int crc32(const char *src, size_t srcSize);
 

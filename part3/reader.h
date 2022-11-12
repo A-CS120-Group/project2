@@ -41,8 +41,8 @@ public:
                 bufferPos = 0;
                 int bit = judgeBit(buffer[0], buffer[2]);
                 if (bit == -1) {
-                    fprintf(stderr, "\t??? bit undetermined! %f %f\n", buffer[0], buffer[2]);
-                    bit = buffer[0] - buffer[2] > 0.0f;
+                    fprintf(stderr, "\t??? bit undetermined! %f %f %f %f\n", buffer[0], buffer[2], buffer[1], buffer[3]);
+                    bit = buffer[1] - buffer[3] > 0.0f;
                 }
                 byte = (char) (byte | (bit << bitPos));
                 if (++bitPos == 8) break;

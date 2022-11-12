@@ -174,10 +174,10 @@ private:
                     if (fabs(data[i]) > NOISY_THRESHOLD) {
                         nowQuiet = false;
                         fprintf(stderr, "\t\tNoisy Now!!!!\n");
-                        std::ofstream logOut("log.out", std::ios::app);
-                        for (int j = 0; j < bufferSize; ++j)logOut << (int) (data[j] * 100) << ' ';
-                        logOut << "\n";
-                        logOut.close();
+//                        std::ofstream logOut("log.out", std::ios::app);
+//                        for (int j = 0; j < bufferSize; ++j)logOut << (int) (data[j] * 100) << ' ';
+//                        logOut << "\n";
+//                        logOut.close();
                         break;
                     }
                 quiet.set(nowQuiet);
