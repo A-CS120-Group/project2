@@ -49,13 +49,13 @@ public:
             }
             int LAR = 0, LFS = 0;
             std::vector<FrameWaitingInfo> info;
-            while (LAR < frameList.rbegin()->seq()) {
+            while (LAR < frameList.rbegin()->seq) {
                 // try to receive an ACK
                 binaryInputLock.enter();
                 if (!binaryInput.empty()) {
                     FrameType ACKFrame = binaryInput.front();
                     binaryInput.pop();
-                    int seq = -ACKFrame.seq();
+                    int seq = -ACKFrame.seq;
                     if (LAR < seq && seq <= LFS) {
                         info[LFS - seq].receiveACK = true;
                         fprintf(stderr, "ACK %d detected after waiting for %lf\n", seq,
@@ -83,7 +83,7 @@ public:
                     fprintf(stderr, "Frame resent, seq = %d\n", seq);
                 }
                 // try to update LFS and send a frame
-                if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < frameList.rbegin()->seq()) {
+                if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < frameList.rbegin()->seq) {
                     ++LFS;
                     writer->send(frameList[LFS]);
                     info.insert(info.begin(), FrameWaitingInfo());
@@ -111,23 +111,23 @@ public:
                 FrameType frame = binaryInput.front();
                 binaryInput.pop();
                 binaryInputLock.exit();
-                fprintf(stderr, "frame received, seq = %d\n", frame.seq());
+                fprintf(stderr, "frame received, seq = %d\n", frame.seq);
                 // End of transmission
-                if (frame.seq() == 0) break;
+                if (frame.seq == 0) break;
                 // Discard it because it's ACK sent by itself
-                if (frame.seq() < 0) continue;
+                if (frame.seq < 0) continue;
                 // Accept this frame and update LFR
-                frameList.insert(std::make_pair(frame.seq(), frame));
+                frameList.insert(std::make_pair(frame.seq, frame));
                 while (frameList.find(LFR + 1) != frameList.end()) ++LFR;
                 // send ACK
-                writer->send({0, frame.seq(), nullptr});
-                fprintf(stderr, "ACK sent, seq = %d\n", frame.seq());
+                writer->send({0, frame.seq, nullptr});
+                fprintf(stderr, "ACK sent, seq = %d\n", frame.seq);
             }
             std::ofstream fOut("OUTPUT.bin", std::ios::binary | std::ios::out);
             for (auto const &iter: frameList) {
                 auto const &frame = iter.second;
-                for (unsigned i = 0; i < frame.len(); ++i)
-                    fOut.put(frame.body()[i]);
+                for (unsigned i = 0; i < frame.len; ++i)
+                    fOut.put(frame.body[i]);
             }
         };
         addAndMakeVisible(saveButton);
@@ -169,7 +169,7 @@ private:
                 for (int i = 0; i < bufferSize; ++i) { directInput.push(data[i]); }
                 bool nowQuiet = true;
                 for (int i = bufferSize - LENGTH_PREAMBLE * LENGTH_OF_ONE_BIT; i < bufferSize; ++i)
-                    if (fabs(data[i]) > 0.1f) {
+                    if (fabs(data[i]) > 0.01f) {
                         nowQuiet = false;
                         fprintf(stderr, "\t\tNoisy Now!!!!\n");
                         for (int j = 0; j < bufferSize; ++j)fprintf(stderr, "%d ", (int) (data[j]) * 100);

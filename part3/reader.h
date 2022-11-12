@@ -24,35 +24,42 @@ public:
 
     ~Reader() override { this->signalThreadShouldExit(); }
 
+    char readByte() {
+        float buffer[LENGTH_OF_ONE_BIT];
+        char byte = 0;
+        int bufferPos = 0, bitPos = 0;
+        protectInput->enter();
+        while (!threadShouldExit()) {
+            if (input->empty()) {
+                protectInput->exit();
+                protectInput->enter();
+                continue;
+            }
+            buffer[bufferPos] = input->front();
+            input->pop();
+            if (++bufferPos == LENGTH_OF_ONE_BIT) {
+                bufferPos = 0;
+                int bit = judgeBit(buffer[0], buffer[2]);
+                assert(bit != -1);
+                byte = (char) (byte | (bit << bitPos));
+                if (++bitPos == 8) break;
+            }
+        }
+        protectInput->exit();
+        return byte;
+    };
+
+    template<class T>
+    void readObject(T &object) {
+        for (size_t i = 0; i < sizeof(object); ++i)
+            *(char *) &object = readByte();
+    }
+
     void run() override {
         assert(input != nullptr);
         assert(output != nullptr);
         assert(protectInput != nullptr);
         assert(protectOutput != nullptr);
-        auto readByte = [this]() {
-            float buffer[LENGTH_OF_ONE_BIT];
-            char byte;
-            int bufferPos = 0, bitPos = 0;
-            protectInput->enter();
-            while (!threadShouldExit()) {
-                if (input->empty()) {
-                    protectInput->exit();
-                    protectInput->enter();
-                    continue;
-                }
-                buffer[bufferPos] = input->front();
-                input->pop();
-                if (++bufferPos == LENGTH_OF_ONE_BIT) {
-                    bufferPos = 0;
-                    int bit = judgeBit(buffer[0], buffer[2]);
-                    assert(bit != -1);
-                    byte = (char) (byte | (bit << bitPos));
-                    if (++bitPos == 8) break;
-                }
-            }
-            protectInput->exit();
-            return byte;
-        };
         auto waitForPreamble = [this]() {
             auto sync = std::deque<float>(LENGTH_PREAMBLE * LENGTH_OF_ONE_BIT, 0);
             protectInput->enter();
@@ -75,25 +82,29 @@ public:
         while (!threadShouldExit()) {
             // wait for PREAMBLE
             waitForPreamble();
-            FrameType frame(0, 0, nullptr);
+            FrameType frame;
             // read LEN, SEQ
-            for (int i = SHIFT_LEN; i < SHIFT_BODY; ++i) { frame.data[i] = readByte(); }
-            if (frame.len() > MAX_LENGTH_BODY) {
+            readObject(frame.len);
+            readObject(frame.seq);
+            if (frame.len > MAX_LENGTH_BODY) {
                 // Too long! There must be some errors.
-                fprintf(stderr, "\tDiscarded due to wrong length. len = %u, seq = %d\n", frame.len(), frame.seq());
+                fprintf(stderr, "\tDiscarded due to wrong length. len = %u, seq = %d\n", frame.len, frame.seq);
                 continue;
             }
-            // read BODY, CRC
-            for (int i = SHIFT_BODY; i < frame.size(); ++i) { frame.data[i] = readByte(); }
-            if (!frame.crcCheck()) {
-                fprintf(stderr, "\tDiscarded due to failing CRC check. len = %u, seq = %d\n", frame.len(),
-                        frame.seq());
+            // read BODY
+            for (int i = 0; i < frame.len; ++i) { frame.body[i] = readByte(); }
+            // read CRC
+            unsigned int crcRead;
+            readObject(crcRead);
+            if (crcRead != frame.crc()) {
+                fprintf(stderr, "\tDiscarded due to failing CRC check. len = %u, seq = %d\n", frame.len,
+                        frame.seq);
                 continue;
             }
             protectOutput->enter();
             output->push(frame);
             protectOutput->exit();
-            fprintf(stderr, "\tSUCCEED! len = %u, seq = %d\n", frame.len(), frame.seq());
+            fprintf(stderr, "\tSUCCEED! len = %u, seq = %d\n", frame.len, frame.seq);
         }
     }
 

@@ -25,19 +25,20 @@ public:
         fprintf(stderr, "defer %lfs because of noisy\n", testNoisyTime.duration());
         // transmit
         protectOutput->enter();
-        for (unsigned int i = 0; i < frame.size(); ++i) {
-            if (frame.data[i]) {
-                output->push(1.0f);
-                output->push(1.0f);
-                output->push(-1.0f);
-                output->push(-1.0f);
-            } else {
-                output->push(-1.0f);
-                output->push(-1.0f);
-                output->push(1.0f);
-                output->push(1.0f);
+        for (auto byte: preamble + frame.wholeString() + inString(frame.crc()))
+            for (int bitPos = 0; bitPos < 8; ++bitPos) {
+                if (byte >> bitPos & 1) {
+                    output->push(1.0f);
+                    output->push(1.0f);
+                    output->push(-1.0f);
+                    output->push(-1.0f);
+                } else {
+                    output->push(-1.0f);
+                    output->push(-1.0f);
+                    output->push(1.0f);
+                    output->push(1.0f);
+                }
             }
-        }
         // wait until the transmission finished
         while (!output->empty()) {
             protectOutput->exit();
