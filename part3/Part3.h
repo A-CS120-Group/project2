@@ -47,15 +47,16 @@ public:
                 int len = std::min(MAX_LENGTH_BODY, dataLength - i * MAX_LENGTH_BODY);
                 frameList.emplace_back(FrameType((unsigned short)len, (short) (i + 1), data.c_str() + i));
             }
-            int LAR = 0, LFS = 0;
+            unsigned LAR = 0, LFS = 0;
             std::vector<FrameWaitingInfo> info;
-            while (LAR < frameList.rbegin()->seq) {
+            while (LAR < frameList.size()-1) {
                 // try to receive an ACK
                 binaryInputLock.enter();
-                if (!binaryInput.empty()) {
+                while (!binaryInput.empty()) {
                     FrameType ACKFrame = binaryInput.front();
                     binaryInput.pop();
-                    int seq = -ACKFrame.seq;
+                    if (ACKFrame.len!=0) continue;
+                    unsigned seq = ACKFrame.seq;
                     if (LAR < seq && seq <= LFS) {
                         info[LFS - seq].receiveACK = true;
                         fprintf(stderr, "ACK %d detected after waiting for %lf\n", seq,

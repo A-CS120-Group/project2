@@ -48,7 +48,7 @@ public:
             }
         }
         return byte;
-    };
+    }
 
     template<class T>
     void readObject(T &object) {
@@ -69,7 +69,7 @@ public:
             input->pop();
             protectInput->exit();
             bool isPreamble = true;
-            for (int i = 0; isPreamble && i < 8 * LENGTH_PREAMBLE; ++i) {
+            for (unsigned i = 0; isPreamble && i < 8 * LENGTH_PREAMBLE; ++i) {
                 isPreamble = (preamble[i / 8] >> (i % 8) & 1) ==
                              judgeBit(sync[i * LENGTH_OF_ONE_BIT], sync[i * LENGTH_OF_ONE_BIT + 2]);
             }

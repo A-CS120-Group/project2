@@ -12,4 +12,4 @@ int judgeBit(float signal1, float signal2) {
     else if (signal2 > 0 && signal1 < 0 && signal2 - signal1 > PREAMBLE_THRESHOLD)
         return 0;
     else return -1;
-};
+}
