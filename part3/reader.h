@@ -29,82 +29,71 @@ public:
         assert(output != nullptr);
         assert(protectInput != nullptr);
         assert(protectOutput != nullptr);
-        auto readBool = [this]() {
-            float sum = 0.0f;
+        auto readByte = [this]() {
+            float buffer[LENGTH_OF_ONE_BIT];
+            char byte;
+            int bufferPos = 0, bitPos = 0;
             protectInput->enter();
-            for (int i = 0; i < LENGTH_OF_ONE_BIT && !threadShouldExit(); ++i) {
+            while (!threadShouldExit()) {
                 if (input->empty()) {
                     protectInput->exit();
+                    protectInput->enter();
                     continue;
                 }
-                float nextValue = input->front();
+                buffer[bufferPos] = input->front();
                 input->pop();
-                if (i != 0 && i != LENGTH_OF_ONE_BIT - 1)
-                    sum += 2 * nextValue;
-                else sum += nextValue;
+                if (++bufferPos == LENGTH_OF_ONE_BIT) {
+                    bufferPos = 0;
+                    int bit = judgeBit(buffer[0], buffer[2]);
+                    assert(bit != -1);
+                    byte = (char) (byte | (bit << bitPos));
+                    if (++bitPos == 8) break;
+                }
             }
             protectInput->exit();
-            return sum > 0.0f;
+            return byte;
         };
-        auto readShort = [readBool]() {
-            short ret = 0;
-            for (int i = 0; i < 16; ++i) { ret = (short) (ret | (readBool() << i)); }
-            return ret;
-        };
-        auto readInt = [readBool]() {
-            int ret = 0;
-            for (int i = 0; i < 32; ++i) { ret = ret | (readBool() << i); }
-            return ret;
-        };
-        auto waitForPreamble = [this]() {// sync[i] = Σ signal[i : i + LENGTH_OF_ONE_BIT]
+        auto waitForPreamble = [this]() {
             auto sync = std::deque<float>(LENGTH_PREAMBLE * LENGTH_OF_ONE_BIT, 0);
+            protectInput->enter();
             while (!threadShouldExit()) {
-                protectInput->enter();
                 if (input->empty()) {
                     protectInput->exit();
+                    protectInput->enter();
                     continue;
                 }
-                float nextValue = input->front();
-                input->pop();
-                protectInput->exit();
                 sync.pop_front();
-                sync.push_back(nextValue);
-                for (int i = 1; i < LENGTH_OF_ONE_BIT; ++i) *(sync.rbegin() + i) += nextValue;
+                sync.push_back(input->front());
+                input->pop();
                 bool isPreamble = true;
-                for (int i = 0; i < LENGTH_PREAMBLE; ++i)
-                    if ((preamble[i] && sync[i * LENGTH_OF_ONE_BIT] < PREAMBLE_THRESHOLD) ||
-                        (!preamble[i] && sync[i * LENGTH_OF_ONE_BIT] > -PREAMBLE_THRESHOLD)) {
-                        isPreamble = false;
-                        break;
-                    }
+                for (int i = 0; isPreamble && i < 8 * LENGTH_PREAMBLE; ++i)
+                    isPreamble = (preamble[i / 8] >> (i % 8) & 1) ==
+                                 judgeBit(sync[i * LENGTH_OF_ONE_BIT], sync[i * LENGTH_OF_ONE_BIT + 2]);
                 if (isPreamble) return;
             }
         };
         while (!threadShouldExit()) {
             // wait for PREAMBLE
             waitForPreamble();
-            if (threadShouldExit()) break;
+            FrameType frame(0, 0, nullptr);
             // read LEN, SEQ
-            int numLEN = (unsigned short) readShort();
-            int numSEQ = readShort();
-            if (numLEN > MAX_LENGTH_BODY) {
+            for (int i = SHIFT_LEN; i < SHIFT_BODY; ++i) { frame.data[i] = readByte(); }
+            if (frame.len() > MAX_LENGTH_BODY) {
                 // Too long! There must be some errors.
-                fprintf(stderr, "    Discarded due to wrong length. len = %d, seq = %d\n", numLEN, numSEQ);
+                fprintf(stderr, "\tDiscarded due to wrong length. len = %u, seq = %d\n", frame.len(), frame.seq());
                 continue;
             }
-            // read BODY
-            FrameType frame(numLEN, numSEQ);
-            for (int i = 0; i < numLEN; ++i) frame.frame[i] = readBool();
-            // read CRC
-            unsigned int numCRC = readInt();
-            if (frame.crc() != numCRC) {
-                fprintf(stderr, "    Discarded due to failing CRC check. len = %d, seq = %d\n", numLEN, numSEQ);
+            // read BODY, CRC
+            for (int i = SHIFT_BODY; i < frame.size(); ++i) { frame.data[i] = readByte(); }
+            if (!frame.crcCheck()) {
+                fprintf(stderr, "\tDiscarded due to failing CRC check. len = %u, seq = %d\n", frame.len(),
+                        frame.seq());
                 continue;
             }
             protectOutput->enter();
             output->push(frame);
             protectOutput->exit();
-            fprintf(stderr, "    SUCCEED! len = %d, seq = %d\n", numLEN, numSEQ);
+            fprintf(stderr, "\tSUCCEED! len = %u, seq = %d\n", frame.len(), frame.seq());
         }
     }
 

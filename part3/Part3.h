@@ -39,29 +39,23 @@ public:
 //            }
             std::ifstream fIn("INPUT.bin", std::ios::binary | std::ios::in);
             assert(fIn.is_open());
-            std::vector<bool> data;
-            for (char c; fIn.get(c);) {
-                for (int i = 0; i < 8; ++i)
-                    data.push_back((bool) ((c >> i) & 1));
-            }
+            std::string data;
+            for (char c; fIn.get(c);) { data.push_back(c); }
             int dataLength = (int) data.size();
-            std::vector<FrameType> frameList(1, {0, 0}); // the first one is dummy
+            std::vector<FrameType> frameList(1, {0, 0, nullptr}); // the first one is dummy
             for (int i = 0; i * MAX_LENGTH_BODY < dataLength; ++i) {
                 int len = std::min(MAX_LENGTH_BODY, dataLength - i * MAX_LENGTH_BODY);
-                FrameType frame(len, i + 1);
-                for (int j = 0; j < len; ++j)
-                    frame.frame[j] = data[i * MAX_LENGTH_BODY + j];
-                frameList.emplace_back(std::move(frame));
+                frameList.emplace_back(FrameType((unsigned short)len, (short) (i + 1), data.c_str() + i));
             }
             int LAR = 0, LFS = 0;
             std::vector<FrameWaitingInfo> info;
-            while (LAR < frameList.rbegin()->seq) {
-                // try to receive ACK
+            while (LAR < frameList.rbegin()->seq()) {
+                // try to receive an ACK
                 binaryInputLock.enter();
                 if (!binaryInput.empty()) {
-                    FrameType ACKFrame = std::move(binaryInput.front());
+                    FrameType ACKFrame = binaryInput.front();
                     binaryInput.pop();
-                    int seq = -ACKFrame.seq;
+                    int seq = -ACKFrame.seq();
                     if (LAR < seq && seq <= LFS) {
                         info[LFS - seq].receiveACK = true;
                         fprintf(stderr, "ACK %d detected after waiting for %lf\n", seq,
@@ -89,7 +83,7 @@ public:
                     fprintf(stderr, "Frame resent, seq = %d\n", seq);
                 }
                 // try to update LFS and send a frame
-                if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < frameList.rbegin()->seq) {
+                if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < frameList.rbegin()->seq()) {
                     ++LFS;
                     writer->send(frameList[LFS]);
                     info.insert(info.begin(), FrameWaitingInfo());
@@ -114,32 +108,26 @@ public:
                     binaryInputLock.exit();
                     continue;
                 }
-                FrameType frame = std::move(binaryInput.front());
+                FrameType frame = binaryInput.front();
                 binaryInput.pop();
                 binaryInputLock.exit();
-                fprintf(stderr, "frame received, seq = %d\n", frame.seq);
+                fprintf(stderr, "frame received, seq = %d\n", frame.seq());
                 // End of transmission
-                if (frame.seq == 0) break;
+                if (frame.seq() == 0) break;
                 // Discard it because it's ACK sent by itself
-                if (frame.seq < 0) continue;
+                if (frame.seq() < 0) continue;
                 // Accept this frame and update LFR
-                frameList.insert(std::make_pair(frame.seq, frame));
+                frameList.insert(std::make_pair(frame.seq(), frame));
                 while (frameList.find(LFR + 1) != frameList.end()) ++LFR;
                 // send ACK
-                writer->send({0, -frame.seq});
-                fprintf(stderr, "ACK sent, seq = %d\n", -frame.seq);
+                writer->send({0, frame.seq(), nullptr});
+                fprintf(stderr, "ACK sent, seq = %d\n", frame.seq());
             }
-            std::vector<bool> data;
-            for (auto const &iter: frameList)
-                for (auto b: iter.second.frame) data.push_back(b);
-            auto dataLength = data.size();
-            assert(dataLength % 8 == 0);
             std::ofstream fOut("OUTPUT.bin", std::ios::binary | std::ios::out);
-            for (int i = 0; i < dataLength; i += 8) {
-                char c = 0;
-                for (int j = 0; j < 8; ++j)
-                    c = (char) (c | (data[i + j] << j));
-                fOut.put(c);
+            for (auto const &iter: frameList) {
+                auto const &frame = iter.second;
+                for (unsigned i = 0; i < frame.len(); ++i)
+                    fOut.put(frame.body()[i]);
             }
         };
         addAndMakeVisible(saveButton);
@@ -183,8 +171,8 @@ private:
                 for (int i = bufferSize - LENGTH_PREAMBLE * LENGTH_OF_ONE_BIT; i < bufferSize; ++i)
                     if (fabs(data[i]) > 0.1f) {
                         nowQuiet = false;
-                        fprintf(stderr, "        Noisy Now!!!!\n");
-                        for (int j = 0; j < bufferSize; ++j)fprintf(stderr, "%f ", data[j]);
+                        fprintf(stderr, "\t\tNoisy Now!!!!\n");
+                        for (int j = 0; j < bufferSize; ++j)fprintf(stderr, "%d ", (int) (data[j]) * 100);
                         fprintf(stderr, "\n");
                         break;
                     }
@@ -195,18 +183,24 @@ private:
                 float *writePosition = buffer->getWritePointer(channel);
                 for (int i = 0; i < bufferSize; ++i)
                     writePosition[i] = 0.0f;
-                for (int i = 0; i < 4; ++i)
-                    writePosition[i] = i & 1 ? 1.0f : -1.0f;
-//                directOutputLock.enter();
-//                for (int i = 0; i < bufferSize; ++i) {
-//                    if (directOutput.empty()) {
-//                        writePosition[i] = BACKGROUND_SIG;
-//                        continue;
-//                    }
-//                    writePosition[i] = directOutput.front();
-//                    directOutput.pop();
+//                constexpr int W = 2;
+//                constexpr int bits[16] = {1,1,1,1,0,1,1,1,
+//                                          1,1,1,1,0,1,1,1};
+//                for (int i = 0; i < 16; ++i) {
+//                    writePosition[4 * i + 0] = writePosition[4 * i + 1] = bits[i] ? 1.0f : -1.0f;
+//                    writePosition[4 * i + 2] = writePosition[4 * i + 3] = bits[i] ? -1.0f : 1.0f;
 //                }
-//                directOutputLock.exit();
+                directOutputLock.enter();
+                for (int i = 0; i < bufferSize; ++i) {
+                    if (directOutput.empty()) {
+                        directOutputLock.exit();
+                        directOutputLock.enter();
+                        continue;
+                    }
+                    writePosition[i] = directOutput.front();
+                    directOutput.pop();
+                }
+                directOutputLock.exit();
             }
         }
     }

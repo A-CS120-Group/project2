@@ -18,41 +18,31 @@ public:
     explicit Writer(std::queue<float> *bufferOut, CriticalSection *lockOutput, Atomic<bool> *quietPtr) :
             output(bufferOut), protectOutput(lockOutput), quiet(quietPtr) {}
 
-    void writeBool(bool bit) {
-        for (int i = 0; i < LENGTH_OF_ONE_BIT; ++i) { output->push(bit ? POSITIVE_SIG : NEGATIVE_SIG); }
-    };
-
-    void writeShort(short x) {
-        for (int i = 0; i < 16; ++i) { writeBool((bool) (x >> i & 1)); }
-    };
-
-    void writeInt(int x) {
-        for (int i = 0; i < 32; ++i) { writeBool((bool) (x >> i & 1)); }
-    };
-
     void send(const FrameType &frame) {
-        protectOutput->enter();
-        while (!output->empty()) {
-            protectOutput->exit();
-            protectOutput->enter();
-        }
-        protectOutput->exit();
         // listen before transmit
         MyTimer testNoisyTime;
         while (!quiet->get());
         fprintf(stderr, "defer %lfs because of noisy\n", testNoisyTime.duration());
-
+        // transmit
         protectOutput->enter();
-        // PREAMBLE
-        for (auto b: preamble) { writeBool(b); }
-        // LEN
-        writeShort((short) frame.size());
-        // SEQ
-        writeShort((short) frame.seq);
-        // BODY
-        for (auto b: frame.frame) { writeBool(b); }
-        // CRC
-        writeInt((int) frame.crc());
+        for (unsigned int i = 0; i < frame.size(); ++i) {
+            if (frame.data[i]) {
+                output->push(1.0f);
+                output->push(1.0f);
+                output->push(-1.0f);
+                output->push(-1.0f);
+            } else {
+                output->push(-1.0f);
+                output->push(-1.0f);
+                output->push(1.0f);
+                output->push(1.0f);
+            }
+        }
+        // wait until the transmission finished
+        while (!output->empty()) {
+            protectOutput->exit();
+            protectOutput->enter();
+        }
         protectOutput->exit();
     }
 
