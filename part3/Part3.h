@@ -30,7 +30,7 @@ public:
             std::vector<FrameWaitingInfo> info;
             for (unsigned i = 0; i * MAX_LENGTH_BODY < dataLength; ++i) {
                 auto len = (LENType) std::min(MAX_LENGTH_BODY, dataLength - i * MAX_LENGTH_BODY);
-                auto seq = (SEQType) ((i + 2) * (isNode1 ? 1 : -1));
+                auto seq = (SEQType) ((signed)(i + 2) * (isNode1 ? 1 : -1));
                 frameListSent.emplace_back(FrameType(len, seq, data.c_str() + i));
             }
             auto frameNumSent = (SEQType) frameListSent.size();
@@ -61,13 +61,13 @@ public:
                     // ignore self sent
                     if (isNode1 ? frame.seq > 0 : frame.seq < 0)
                         continue;
-                    auto seq = (unsigned) abs(frame.seq);
+                    auto seq = (unsigned) abs(frame.seq), index = seq - 1;
                     // It's a frame
                     if (frame.len != 0) {
-                        fprintf(stderr, "frame received, seq = %d\n", seq);
+                        fprintf(stderr, "frame received, seq = %d\n", frame.seq);
                         // Accept this frame and update LFR
-                        while (frameListRec.size() < seq) frameListRec.emplace_back(FrameType());
-                        frameListRec[seq - 1] = frame;
+                        while (frameListRec.size() <= index) frameListRec.emplace_back(FrameType());
+                        frameListRec[index] = frame;
                         while (LFR < frameListRec.size() && frameListRec[LFR].len != 0) ++LFR;
                         // send ACK
                         writer->send(FrameType(0, (SEQType) -frame.seq, nullptr));
@@ -77,9 +77,9 @@ public:
                             receiveAll = true;
                             fprintf(stderr, "------- All frames received in %lfs --------\n", testTotalTime.duration());
                             std::ofstream fOut("OUTPUT.bin", std::ios::binary | std::ios::out);
-                            for (seq = 2; seq <= frameListRec.size(); ++seq) {
-                                for (unsigned i = 0; i < frameListRec[seq - 1].len; ++i)
-                                    fOut.put(frameListRec[seq - 1].body[i]);
+                            for (index = 1; index < frameListRec.size(); ++index) {
+                                for (unsigned i = 0; i < frameListRec[index].len; ++i)
+                                    fOut.put(frameListRec[index].body[i]);
                             }
                         }
                     } else { // It's an ACK
@@ -107,7 +107,7 @@ public:
                         fprintf(stderr, "Link error detected! frame seq = %d resend too many times...\n", seq);
                         return;
                     }
-                    writer->send(frameListSent[seq]);
+                    writer->send(frameListSent[seq - 1]);
                     info[LFS - seq].timer.restart();
                     info[LFS - seq].resendTimes--;
                     fprintf(stderr, "Oh No Frame Resent!, seq = %d\n", seq);
@@ -115,7 +115,7 @@ public:
                 // try to update LFS and send a frame
                 if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < (unsigned) frameNumSent) {
                     ++LFS;
-                    writer->send(frameListSent[LFS]);
+                    writer->send(frameListSent[LFS - 1]);
                     info.insert(info.begin(), FrameWaitingInfo());
                     fprintf(stderr, "Frame sent, seq = %d\n", LFS);
                 }

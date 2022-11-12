@@ -38,7 +38,7 @@ template<class T>
  * BODY
  * CRC
  */
-constexpr char preamble[LENGTH_PREAMBLE]{0x55, 0x55, 0x5f};
+constexpr char preamble[LENGTH_PREAMBLE]{0x55, 0x55, 0x54};
 
 class FrameType {
 public:
