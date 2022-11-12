@@ -45,7 +45,7 @@ public:
             std::vector<FrameType> frameList(1, {0, 0, nullptr}); // the first one is dummy
             for (int i = 0; i * MAX_LENGTH_BODY < dataLength; ++i) {
                 int len = std::min(MAX_LENGTH_BODY, dataLength - i * MAX_LENGTH_BODY);
-                frameList.emplace_back(FrameType((unsigned short)len, (short) (i + 1), data.c_str() + i));
+                frameList.emplace_back(FrameType((unsigned short) len, (short) (i + 1), data.c_str() + i));
             }
             unsigned LAR = 0, LFS = 0, frameNumber = (unsigned) frameList.size() - 1;
             std::vector<FrameWaitingInfo> info;
@@ -55,8 +55,8 @@ public:
                 while (!binaryInput.empty()) {
                     FrameType ACKFrame = binaryInput.front();
                     binaryInput.pop();
-                    if (ACKFrame.len!=0) continue;
-                    auto seq = (unsigned)abs(ACKFrame.seq);
+                    if (ACKFrame.len != 0) continue;
+                    auto seq = (unsigned) abs(ACKFrame.seq);
                     if (LAR < seq && seq <= LFS) {
                         info[LFS - seq].receiveACK = true;
                         fprintf(stderr, "ACK %d detected after waiting for %lf\n", seq,
@@ -171,7 +171,7 @@ private:
                 // listen if the channel is quiet
                 bool nowQuiet = true;
                 for (int i = bufferSize - LENGTH_PREAMBLE * LENGTH_OF_ONE_BIT; i < bufferSize; ++i)
-                    if (fabs(data[i]) > 0.01f) {
+                    if (fabs(data[i]) > NOISY_THRESHOLD) {
                         nowQuiet = false;
                         fprintf(stderr, "\t\tNoisy Now!!!!\n");
                         for (int j = 0; j < bufferSize; ++j)fprintf(stderr, "%d ", (int) (data[j] * 100));

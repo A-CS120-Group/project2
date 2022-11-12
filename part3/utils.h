@@ -17,6 +17,7 @@
 #define SLIDING_WINDOW_SIZE 1
 #define SLIDING_WINDOW_TIMEOUT 1
 #define PREAMBLE_THRESHOLD 0.5f
+#define NOISY_THRESHOLD 0.1f
 
 unsigned int crc32(const char *src, size_t srcSize);
 
@@ -78,5 +79,5 @@ public:
 struct FrameWaitingInfo {
     bool receiveACK = false;
     MyTimer timer;
-    int resendTimes = 3;
+    int resendTimes = 0;
 };
