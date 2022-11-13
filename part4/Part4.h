@@ -75,13 +75,17 @@ public:
                         // every frame from the other Node is received
                         if (!receiveAll && LFR == (unsigned) *(SEQType *) &frameListRec[0].body) {
                             receiveAll = true;
-                            fprintf(stderr, "Test Finish with average throughput: %dbps", static_cast<int>((PERF_NUMBER_PACKETS / testTotalTime.duration()) * MAX_LENGTH_BODY * 8));
+                            fprintf(stderr, "Test Finish with average throughput: %dbps",
+                                    static_cast<int>((PERF_NUMBER_PACKETS / testTotalTime.duration()) *
+                                                     MAX_LENGTH_BODY * 8));
                             // We don't want to keep those random packets
                         }
                     } else {// It's an ACK
                         if (LAR < seqNum && seqNum <= LFS) {
                             info[LFS - seqNum].receiveACK = true;
-                            fprintf(stderr, "Average throughput: %dbps\n", static_cast<int>((static_cast<double>(frame.seq) / testTotalTime.duration()) * MAX_LENGTH_BODY * 8));
+                            fprintf(stderr, "Average throughput: %dbps\n",
+                                    static_cast<int>((static_cast<double>(seqNum) / testTotalTime.duration()) *
+                                                     MAX_LENGTH_BODY * 8));
                         }
                     }
                 }
@@ -94,7 +98,10 @@ public:
                 }
                 // resend timeout frames
                 for (unsigned seq = LAR + 1; seq <= LFS; ++seq) {
-                    if (info[LFS - seq].receiveACK || info[LFS - seq].timer.duration() < SLIDING_WINDOW_TIMEOUT) continue;
+                    if (info[LFS - seq].receiveACK ||
+                        info[LFS - seq].timer.duration() < (isNode1 ? SLIDING_WINDOW_TIMEOUT_NODE1
+                                                                    : SLIDING_WINDOW_TIMEOUT_NODE2))
+                        continue;
                     if (info[LFS - seq].resendTimes == 0) {
                         fprintf(stderr, "Link error detected!\n");
                         return;

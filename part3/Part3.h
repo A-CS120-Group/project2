@@ -101,7 +101,8 @@ public:
                 // resend timeout frames
                 for (unsigned seq = LAR+1; seq <= LFS; ++seq) {
                     if (info[LFS - seq].receiveACK ||
-                        info[LFS - seq].timer.duration() < SLIDING_WINDOW_TIMEOUT)
+                        info[LFS - seq].timer.duration() < (isNode1 ? SLIDING_WINDOW_TIMEOUT_NODE1
+                                                                    : SLIDING_WINDOW_TIMEOUT_NODE2))
                         continue;
                     if (info[LFS - seq].resendTimes == 0) {
                         fprintf(stderr, "Link error detected! frame seq = %d resend too many times...\n", seq);
