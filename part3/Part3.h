@@ -26,7 +26,8 @@ public:
             for (char c; fIn.get(c);) { data.push_back(c); }
             size_t dataLength = data.size();
             // frameList[0] is used to store the number of frames
-            std::vector<FrameType> frameListSent(1), frameListRec;
+            std::vector<FrameType> frameListSent(1);
+            std::map<unsigned, FrameType>frameListRec;
             std::vector<FrameWaitingInfo> info;
             for (unsigned i = 0; i * MAX_LENGTH_BODY < dataLength; ++i) {
                 auto len = (LENType) std::min(MAX_LENGTH_BODY, dataLength - i * MAX_LENGTH_BODY);
@@ -58,7 +59,7 @@ public:
                     FrameType frame = binaryInput.front();
                     binaryInput.pop();
                     binaryInputLock.exit();
-                    auto seqNum = (unsigned) abs(frame.seq), index = seqNum - 1;
+                    auto seqNum = (unsigned) abs(frame.seq);
                     // It's a frame
                     if (frame.len != 0) {
                         // ignore self sent
@@ -66,20 +67,20 @@ public:
                             continue;
                         fprintf(stderr, "frame received, seq = %d\n", frame.seq);
                         // Accept this frame and update LFR
-                        while (frameListRec.size() <= index) frameListRec.emplace_back(FrameType());
-                        frameListRec[index] = frame;
-                        while (LFR < frameListRec.size() && frameListRec[LFR].len != 0) ++LFR;
+                        frameListRec[seqNum] = frame;
+                        while (frameListRec.find(LFR+1)!=frameListRec.end()) ++LFR;
                         // send ACK
                         writer->send(FrameType(0, frame.seq, nullptr));
                         fprintf(stderr, "ACK sent, seq = %d\n", frame.seq);
                         // every frame from the other Node is received
-                        if (!receiveAll && LFR == (unsigned) *(SEQType *) &frameListRec[0].body) {
+                        if (!receiveAll && LFR == (unsigned) *(SEQType *) &frameListRec[1].body) {
                             receiveAll = true;
                             fprintf(stderr, "------- All frames received in %lfs --------\n", testTotalTime.duration());
                             std::ofstream fOut("OUTPUT.bin", std::ios::binary | std::ios::out);
-                            for (index = 1; index < frameListRec.size(); ++index) {
-                                for (unsigned i = 0; i < frameListRec[index].len; ++i)
-                                    fOut.put(frameListRec[index].body[i]);
+                            for (auto iter: frameListRec) {
+                                if (iter.first == 1) continue;
+                                for (unsigned i = 0; i < iter.second.len; ++i)
+                                    fOut.put(iter.second.body[i]);
                             }
                         }
                     } else { // It's an ACK
