@@ -27,12 +27,12 @@ public:
             size_t dataLength = data.size();
             // frameList[0] is used to store the number of frames
             std::vector<FrameType> frameListSent(1);
-            std::map<unsigned, FrameType>frameListRec;
+            std::map<unsigned, FrameType> frameListRec;
             std::vector<FrameWaitingInfo> info;
             for (unsigned i = 0; i * MAX_LENGTH_BODY < dataLength; ++i) {
                 auto len = (LENType) std::min(MAX_LENGTH_BODY, dataLength - i * MAX_LENGTH_BODY);
-                auto seq = (SEQType) ((signed)(i + 2) * (isNode1 ? 1 : -1));
-                frameListSent.emplace_back(FrameType(len, seq, data.c_str() + i));
+                auto seq = (SEQType) ((signed) (i + 2) * (isNode1 ? 1 : -1));
+                frameListSent.emplace_back(FrameType(len, seq, data.c_str() + i * MAX_LENGTH_BODY));
             }
             auto frameNumSent = (SEQType) frameListSent.size();
             frameListSent[0] = FrameType((LENType) LENGTH_SEQ, (SEQType) (isNode1 ? 1 : -1), &frameNumSent);
@@ -68,7 +68,7 @@ public:
                         fprintf(stderr, "frame received, seq = %d\n", frame.seq);
                         // Accept this frame and update LFR
                         frameListRec[seqNum] = frame;
-                        while (frameListRec.find(LFR+1)!=frameListRec.end()) ++LFR;
+                        while (frameListRec.find(LFR + 1) != frameListRec.end()) ++LFR;
                         // send ACK
                         writer->send(FrameType(0, frame.seq, nullptr));
                         fprintf(stderr, "ACK sent, seq = %d\n", frame.seq);
@@ -100,7 +100,7 @@ public:
                         ACKedAll = true;
                 }
                 // resend timeout frames
-                for (unsigned seq = LAR+1; seq <= LFS; ++seq) {
+                for (unsigned seq = LAR + 1; seq <= LFS; ++seq) {
                     if (info[LFS - seq].receiveACK ||
                         info[LFS - seq].timer.duration() < (isNode1 ? SLIDING_WINDOW_TIMEOUT_NODE1
                                                                     : SLIDING_WINDOW_TIMEOUT_NODE2))
