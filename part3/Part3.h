@@ -70,8 +70,8 @@ public:
                         frameListRec[index] = frame;
                         while (LFR < frameListRec.size() && frameListRec[LFR].len != 0) ++LFR;
                         // send ACK
-                        writer->send(FrameType(0, (SEQType) -frame.seq, nullptr));
-                        fprintf(stderr, "ACK sent, seq = %d\n", -frame.seq);
+                        writer->send(FrameType(0, frame.seq, nullptr));
+                        fprintf(stderr, "ACK sent, seq = %d\n", frame.seq);
                         // every frame from the other Node is received
                         if (!receiveAll && LFR == (unsigned) *(SEQType *) &frameListRec[0].body) {
                             receiveAll = true;
