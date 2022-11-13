@@ -94,7 +94,9 @@ public:
                 }
                 if (pingTime.duration() > MACPING_REPLY) {
                     fprintf(stderr, "PING TIMEOUT!!!\n");
-                    break;
+                    writer->send(frameListSent[0]);
+                    fprintf(stderr, "PING sent!, seq = %d\n", frameListSent[0].seq);
+                    pingTime.restart();
                 }
             }
         };
