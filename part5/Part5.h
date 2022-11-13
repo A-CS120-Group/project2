@@ -13,9 +13,94 @@
 class MainContentComponent : public juce::AudioAppComponent {
 public:
     MainContentComponent() {
+        titleLabel.setText("Part5", juce::NotificationType::dontSendNotification);
+        titleLabel.setSize(160, 40);
+        titleLabel.setFont(juce::Font(36, juce::Font::FontStyleFlags::bold));
+        titleLabel.setJustificationType(juce::Justification(juce::Justification::Flags::centred));
+        titleLabel.setCentrePosition(300, 40);
+        addAndMakeVisible(titleLabel);
 
-        static auto MacLayer = [this](bool isNode1) {
+        Node1Button.setButtonText("Node1");
+        Node1Button.setSize(80, 40);
+        Node1Button.setCentrePosition(150, 140);
+        Node1Button.onClick = [this] {// ping
             // Transmission Initialization
+            std::string data;
+
+            // Fill random bytes for MacPerf
+            juce::Random e;
+            for (int i = 0; i < PERF_NUMBER_PACKETS; ++i) {
+                for (int j = 0; j < MAX_LENGTH_BODY; ++j) {
+                    data.push_back(static_cast<char>(e.nextInt(juce::Range<int>(0, 128))));
+                }
+            }
+
+            size_t dataLength = data.size();
+            // frameList[0] is used to store the number of frames
+            std::vector<FrameType> frameListSent(1), frameListRec;
+            for (unsigned i = 0; i * MAX_LENGTH_BODY < dataLength; ++i) {
+                auto len = (LENType) std::min(MAX_LENGTH_BODY, dataLength - i * MAX_LENGTH_BODY);
+                auto seq = (SEQType) ((signed) (i + 2) * 1);
+                frameListSent.emplace_back(FrameType(len, seq, data.c_str() + i));
+            }
+            auto frameNumSent = (SEQType) frameListSent.size();
+            frameListSent[0] = FrameType((LENType) LENGTH_SEQ, (SEQType) 1, &frameNumSent);
+            // Node2 waits for Node1 to tell it start
+            MyTimer testTotalTime;
+            MyTimer pingTime;
+            unsigned LFR = 0;
+            bool receiveAll = false;
+            while (!receiveAll) {
+                // try to receive a frame or an ACK
+                while (true) {
+                    binaryInputLock.enter();
+                    if (binaryInput.empty()) {
+                        binaryInputLock.exit();
+                        break;
+                    }
+                    FrameType frame = binaryInput.front();
+                    binaryInput.pop();
+                    binaryInputLock.exit();
+                    auto seqNum = (unsigned) abs(frame.seq), index = seqNum - 1;
+                    // It's a frame
+                    if (frame.len != 0) {
+                        // ignore self sent
+                        if (frame.seq > 0) continue;
+                        fprintf(stderr, "Perf frame received, seq = %d\n", frame.seq);
+                        // Accept this frame and update LFR
+                        while (frameListRec.size() <= index) frameListRec.emplace_back(FrameType());
+                        frameListRec[index] = frame;
+                        while (LFR < frameListRec.size() && frameListRec[LFR].len != 0) ++LFR;
+                        // send ACK
+                        writer->send(FrameType(0, frame.seq, nullptr));
+                        // every frame from the other Node is received
+                        if (!receiveAll && LFR == (unsigned) *(SEQType *) &frameListRec[0].body) {
+                            receiveAll = true;
+                            fprintf(stderr, "Test Finish with average throughput: %dbps",
+                                    static_cast<int>((PERF_NUMBER_PACKETS / testTotalTime.duration()) *
+                                                     MAX_LENGTH_BODY * 8));
+                            // We don't want to keep those random packets
+                        }
+                    } else {// It's an ACK
+                        fprintf(stderr, "Ping succeed with RTT %lfs.\n", pingTime.duration());
+                    }
+                }
+                // repeat sending ping frame
+                if (pingTime.duration() > MACPING_REPLY) {
+                    writer->send(frameListSent[0]);
+                    fprintf(stderr, "PING sent!, seq = %d\n", frameListSent[0].seq);
+                    pingTime.restart();
+                }
+            }
+        };
+        addAndMakeVisible(Node1Button);
+
+        Node2Button.setButtonText("Node2");
+        Node2Button.setSize(80, 40);
+        Node2Button.setCentrePosition(450, 140);
+        Node2Button.onClick = [this] {// perf
+            // Transmission Initialization
+            constexpr bool isNode1 = false;
             std::string data;
 
             // Fill random bytes for MacPerf
@@ -32,22 +117,19 @@ public:
             std::vector<FrameWaitingInfo> info;
             for (unsigned i = 0; i * MAX_LENGTH_BODY < dataLength; ++i) {
                 auto len = (LENType) std::min(MAX_LENGTH_BODY, dataLength - i * MAX_LENGTH_BODY);
-                auto seq = (SEQType) ((signed) (i + 2) * (isNode1 ? 1 : -1));
+                auto seq = (SEQType) ((signed) (i + 2) * -1);
                 frameListSent.emplace_back(FrameType(len, seq, data.c_str() + i));
             }
             auto frameNumSent = (SEQType) frameListSent.size();
-            frameListSent[0] = FrameType((LENType) LENGTH_SEQ, (SEQType) (isNode1 ? 1 : -1), &frameNumSent);
+            frameListSent[0] = FrameType((LENType) LENGTH_SEQ, (SEQType) -1, &frameNumSent);
             // Node2 waits for Node1 to tell it start
-            if (!isNode1) {
-                while (true) {
-                    binaryInputLock.enter();
-                    if (!binaryInput.empty()) break;
-                    binaryInputLock.exit();
-                }
+            while (true) {
+                binaryInputLock.enter();
+                if (!binaryInput.empty()) break;
                 binaryInputLock.exit();
             }
+            binaryInputLock.exit();
             MyTimer testTotalTime;
-            MyTimer pingTime;
             unsigned LAR = 0, LFS = 0, LFR = 0;
             bool ACKedAll = false, receiveAll = false;
             while (!ACKedAll || !receiveAll) {
@@ -65,7 +147,7 @@ public:
                     // It's a frame
                     if (frame.len != 0) {
                         // ignore self sent
-                        if (isNode1 ? frame.seq > 0 : frame.seq < 0) continue;
+                        if (frame.seq < 0) continue;
                         fprintf(stderr, "Perf frame received, seq = %d\n", frame.seq);
                         // Accept this frame and update LFR
                         while (frameListRec.size() <= index) frameListRec.emplace_back(FrameType());
@@ -84,7 +166,9 @@ public:
                     } else {// It's an ACK
                         if (LAR < seqNum && seqNum <= LFS) {
                             info[LFS - seqNum].receiveACK = true;
-                            fprintf(stderr, "Ping succeed with RTT %lfs.\n", info[LFS - seqNum].timer.duration());
+                            fprintf(stderr, "Average throughput: %dbps\n",
+                                    static_cast<int>((static_cast<double>(seqNum) / testTotalTime.duration()) *
+                                                     MAX_LENGTH_BODY * 8));
                         }
                     }
                 }
@@ -95,51 +179,30 @@ public:
                     // every frame to the other Node is ACKed
                     if (!ACKedAll && LAR == (unsigned) frameNumSent) ACKedAll = true;
                 }
-
-                if (pingTime.duration() > 1.0f) {// resend timeout frames
-                    for (unsigned seq = LAR + 1; seq <= LFS; ++seq) {
-                        if (info[LFS - seq].receiveACK ||
-                            info[LFS - seq].timer.duration() < (isNode1 ? SLIDING_WINDOW_TIMEOUT_NODE1
-                                                                        : SLIDING_WINDOW_TIMEOUT_NODE2))
-                            continue;
-                        if (info[LFS - seq].resendTimes == 0) {
-                            fprintf(stderr, "Link error detected!\n");
-                            return;
-                        }
-                        writer->send(frameListSent[seq - 1]);
-                        fprintf(stderr, "Oh No Frame Resent!, seq = %d\n", frameListSent[seq - 1].seq);
-                        info[LFS - seq].timer.restart();
-                        info[LFS - seq].resendTimes--;
+                // resend timeout frames
+                for (unsigned seq = LAR + 1; seq <= LFS; ++seq) {
+                    if (info[LFS - seq].receiveACK ||
+                        info[LFS - seq].timer.duration() < (isNode1 ? SLIDING_WINDOW_TIMEOUT_NODE1
+                                                                    : SLIDING_WINDOW_TIMEOUT_NODE2))
+                        continue;
+                    if (info[LFS - seq].resendTimes == 0) {
+                        fprintf(stderr, "Link error detected!\n");
+                        return;
                     }
-                    // try to update LFS and send a frame
-                    if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < (unsigned) frameNumSent) {
-                        ++LFS;
-                        writer->send(frameListSent[LFS - 1]);
-                        info.insert(info.begin(), FrameWaitingInfo());
-                        fprintf(stderr, "Frame sent, seq = %d\n", LFS);
-                    }
-                    pingTime.restart();
+                    writer->send(frameListSent[seq - 1]);
+                    fprintf(stderr, "Oh No Frame Resent!, seq = %d\n", frameListSent[seq - 1].seq);
+                    info[LFS - seq].timer.restart();
+                    info[LFS - seq].resendTimes--;
+                }
+                // try to update LFS and send a frame
+                if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < (unsigned) frameNumSent) {
+                    ++LFS;
+                    writer->send(frameListSent[LFS - 1]);
+                    info.insert(info.begin(), FrameWaitingInfo());
+                    fprintf(stderr, "Frame sent, seq = %d\n", LFS);
                 }
             }
         };
-
-        titleLabel.setText("Part5", juce::NotificationType::dontSendNotification);
-        titleLabel.setSize(160, 40);
-        titleLabel.setFont(juce::Font(36, juce::Font::FontStyleFlags::bold));
-        titleLabel.setJustificationType(juce::Justification(juce::Justification::Flags::centred));
-        titleLabel.setCentrePosition(300, 40);
-        addAndMakeVisible(titleLabel);
-
-        Node1Button.setButtonText("Node1");
-        Node1Button.setSize(80, 40);
-        Node1Button.setCentrePosition(150, 140);
-        Node1Button.onClick = [] { return MacLayer(true); }; // ping
-        addAndMakeVisible(Node1Button);
-
-        Node2Button.setButtonText("Node2");
-        Node2Button.setSize(80, 40);
-        Node2Button.setCentrePosition(450, 140);
-        Node2Button.onClick = [] { return MacLayer(false); }; // perf
         addAndMakeVisible(Node2Button);
 
         setSize(600, 300);
