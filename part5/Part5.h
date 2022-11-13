@@ -82,12 +82,7 @@ public:
                     } else {// It's an ACK
                         if (LAR < seqNum && seqNum <= LFS) {
                             info[LFS - seqNum].receiveACK = true;
-                            fprintf(stderr, "Average throughput: %dbps\n", static_cast<int>((static_cast<double>(frame.seq) / testTotalTime.duration()) * MAX_LENGTH_BODY * 8));
-                        }
-
-                        if (LAR < seqNum && seqNum <= LFS) {
-                            info[LFS - seqNum].receiveACK = true;
-                            fprintf(stderr, "ACK %d received after %lfs, resendTimes left %d\n", frame.seq, info[LFS - seqNum].timer.duration(), info[LFS - seqNum].resendTimes);
+                            fprintf(stderr, "Ping succeed with RTT %lfs.\n", info[LFS - seqNum].timer.duration());
                         }
                     }
                 }
@@ -99,26 +94,27 @@ public:
                     if (!ACKedAll && LAR == (unsigned) frameNumSent) ACKedAll = true;
                 }
 
-                // resend timeout frames
-                for (unsigned seq = LAR + 1; seq <= LFS; ++seq) {
-                    if (info[LFS - seq].receiveACK || info[LFS - seq].timer.duration() < SLIDING_WINDOW_TIMEOUT) continue;
-                    if (info[LFS - seq].resendTimes == 0) {
-                        fprintf(stderr, "Link error detected!\n");
-                        return;
+                if (pingTime.duration() > 1.0f) {// resend timeout frames
+                    for (unsigned seq = LAR + 1; seq <= LFS; ++seq) {
+                        if (info[LFS - seq].receiveACK || info[LFS - seq].timer.duration() < SLIDING_WINDOW_TIMEOUT) continue;
+                        if (info[LFS - seq].resendTimes == 0) {
+                            fprintf(stderr, "Link error detected!\n");
+                            return;
+                        }
+                        writer->send(frameListSent[seq - 1]);
+                        fprintf(stderr, "Oh No Frame Resent!, seq = %d\n", frameListSent[seq - 1].seq);
+                        info[LFS - seq].timer.restart();
+                        info[LFS - seq].resendTimes--;
                     }
-                    writer->send(frameListSent[seq - 1]);
-                    fprintf(stderr, "Oh No Frame Resent!, seq = %d\n", frameListSent[seq - 1].seq);
-                    info[LFS - seq].timer.restart();
-                    info[LFS - seq].resendTimes--;
+                    // try to update LFS and send a frame
+                    if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < (unsigned) frameNumSent) {
+                        ++LFS;
+                        writer->send(frameListSent[LFS - 1]);
+                        info.insert(info.begin(), FrameWaitingInfo());
+                        fprintf(stderr, "Frame sent, seq = %d\n", LFS);
+                    }
+                    pingTime.restart();
                 }
-                // try to update LFS and send a frame
-                if (LFS - LAR < SLIDING_WINDOW_SIZE && LFS < (unsigned) frameNumSent) {
-                    ++LFS;
-                    writer->send(frameListSent[LFS - 1]);
-                    info.insert(info.begin(), FrameWaitingInfo());
-                    fprintf(stderr, "Frame sent, seq = %d\n", LFS);
-                }
-
             }
         };
 
