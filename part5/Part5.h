@@ -47,7 +47,7 @@ public:
             frameListSent[0] = FrameType((LENType) LENGTH_SEQ, (SEQType) 1, &frameNumSent);
             // Node2 waits for Node1 to tell it start
             MyTimer testTotalTime;
-            MyTimer pingTime;
+            MyTimer pingTimeRec, pingTimeSent;
             unsigned LFR = 0;
             bool receiveAll = false;
             while (!receiveAll) {
@@ -82,14 +82,20 @@ public:
                             // We don't want to keep those random packets
                         }
                     } else {// It's an ACK
-                        fprintf(stderr, "Ping succeed with RTT %lfs.\n", pingTime.duration());
+                        fprintf(stderr, "Ping succeed with RTT %lfs.\n", pingTimeRec.duration());
+                        pingTimeRec.restart();
+                        pingTimeSent.restart();
                     }
                 }
                 // repeat sending ping frame
-                if (pingTime.duration() > MACPING_REPLY) {
+                if (pingTimeSent.duration() > 0.3) {
                     writer->send(frameListSent[0]);
                     fprintf(stderr, "PING sent!, seq = %d\n", frameListSent[0].seq);
-                    pingTime.restart();
+                    pingTimeSent.restart();
+                }
+                if (pingTimeRec.duration() > MACPING_REPLY) {
+                    fprintf(stderr, "PING TIMEOUT!!!\n");
+                    break;
                 }
             }
         };
